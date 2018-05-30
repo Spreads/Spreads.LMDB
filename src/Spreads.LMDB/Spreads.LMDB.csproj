@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\build\common.props" />
+  <PropertyGroup>
+    <Description>LMDB wrapper with some additional native helper methods useful for Spreads.</Description>
+
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AssemblyName>Spreads.LMDB</AssemblyName>
+    <AssemblyOriginatorKeyFile>../../tools/SpreadsKey.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+    <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
+    <PackageId>Spreads.LMDB</PackageId>
+    <GenerateNeutralResourcesLanguageAttribute>false</GenerateNeutralResourcesLanguageAttribute>
+    <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
+    <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
+    <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
+    <DelaySign>False</DelaySign>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="SQLite\**" />
+    <EmbeddedResource Remove="SQLite\**" />
+    <None Remove="SQLite\**" />
+  </ItemGroup>
+
+  <!--<ItemGroup>
+    <EmbeddedResource Include="..\..\lib\out\w64\bin\spreads_lmdb.dll.compressed">
+      <Link>native\win.x64.spreads_lmdb.dll</Link>
+      <LogicalName>win.x64.spreads_lmdb.dll</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\lib\out\l64\bin\spreads_lmdb.so.compressed">
+      <Link>native\lin.x64.spreads_lmdb.so</Link>
+      <LogicalName>lin.x64.spreads_lmdb.so</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>-->
+
+  <ItemGroup>
+    <PackageReference Include="Spreads.Core" Version="1.0.0-build1805300956R" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Interop\" />
+  </ItemGroup>
+
+</Project>
