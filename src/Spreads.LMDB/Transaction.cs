@@ -6,6 +6,7 @@ using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 //using Spreads.DB.Async;
 
@@ -39,6 +40,7 @@ namespace Spreads.LMDB
             _state = TransactionState.Disposed;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static Transaction Create(Environment environment, TransactionBeginFlags beginFlags)
         {
             environment.EnsureOpened();
@@ -47,7 +49,7 @@ namespace Spreads.LMDB
 
             if (tx._state != TransactionState.Disposed)
             {
-                throw new InvalidOperationException("Pooled tx must be in disposed state");
+                ThrowShoudBeDisposed();
             }
 
             tx._environment = environment;
@@ -84,7 +86,7 @@ namespace Spreads.LMDB
         {
             if (_state == TransactionState.Disposed)
             {
-                throw new InvalidOperationException("Transaction is already disposed");
+                ThrowlAlreadyDisposed();
             }
             var isReadOnly = IsReadOnly;
             if (isReadOnly)
@@ -153,6 +155,18 @@ namespace Spreads.LMDB
             Dispose(false);
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowShoudBeDisposed()
+        {
+            throw new InvalidOperationException("Pooled tx must be in disposed state");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowlAlreadyDisposed()
+        {
+            throw new InvalidOperationException("Pooled tx must be in disposed state");
+        }
+
         #endregion Lifecycle
 
         /// <summary>
@@ -169,22 +183,6 @@ namespace Spreads.LMDB
         /// Current transaction state.
         /// </summary>
         internal TransactionState State => _state;
-
-        /// <summary>
-        /// Reset current transaction.
-        /// </summary>
-        public void Reset()
-        {
-            if (_state != TransactionState.Active)
-            {
-                throw new InvalidOperationException("Transaction state is not active for reset");
-            }
-            if (!IsReadOnly)
-            {
-                throw new InvalidOperationException("Cannot reset non-readonly transaction");
-            }
-            Dispose();
-        }
 
         /// <summary>
         /// Commit all the operations of a transaction into the database.

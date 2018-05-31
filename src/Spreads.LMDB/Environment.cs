@@ -5,6 +5,8 @@
 using Spreads.LMDB.Interop;
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,8 +23,8 @@ namespace Spreads.LMDB
         private int _maxDbs;
         private int _pageSize;
 
-        internal readonly BlockingCollection<(TaskCompletionSource<object>, Func<Transaction, object>)>
-           WriteQueue = new BlockingCollection<(TaskCompletionSource<object>, Func<Transaction, object>)>();
+        private readonly BlockingCollection<(TaskCompletionSource<object>, ActionOrFunction)>
+           _writeQueue = new BlockingCollection<(TaskCompletionSource<object>, ActionOrFunction)>();
 
         private readonly Task _writeTask;
         private readonly CancellationTokenSource _cts;
@@ -68,25 +70,40 @@ namespace Spreads.LMDB
 
             _writeTask = Task.Factory.StartNew(() =>
             {
-                while (!WriteQueue.IsCompleted)
+                while (!_writeQueue.IsCompleted)
                 {
                     try
                     {
                         // BLOCKING
-                        var tuple = WriteQueue.Take(_cts.Token);
+                        var tuple = _writeQueue.Take(_cts.Token);
                         var tcs = tuple.Item1;
-                        var func = tuple.Item2;
+                        var act = tuple.Item2;
                         try
                         {
                             using (var txn = Transaction.Create(this, TransactionBeginFlags.ReadWrite))
                             {
-                                var res = func(txn);
-                                tcs.SetResult(res);
+                                if (tcs != null)
+                                {
+                                    var res = act.writeFunction(txn);
+                                    tcs.SetResult(res);
+                                }
+                                else
+                                {
+                                    act.writeAction(txn);
+                                }
                             }
                         }
                         catch (Exception e)
                         {
-                            tcs.SetException(e);
+                            if (tcs != null)
+                            {
+                                tcs.SetException(e);
+                            }
+                            else
+                            {
+                                // TODO event or some otehr way to track unhandled exceptions
+                                Trace.TraceError(e.ToString());
+                            }
                         }
                     }
                     catch (InvalidOperationException) { }
@@ -117,28 +134,46 @@ namespace Spreads.LMDB
         /// <summary>
         /// Performs a write trasaction asynchronously.
         /// </summary>
-        public Task<object> WriteAsync(Func<Transaction, object> writeAction)
+        public Task<object> WriteAsync(Func<Transaction, object> writeFunction)
         {
             var builder = new TaskCompletionSource<object>();
-            if (!WriteQueue.IsAddingCompleted)
+            var act = new ActionOrFunction { writeFunction = writeFunction };
+
+            if (!_writeQueue.IsAddingCompleted)
             {
-                WriteQueue.Add((builder, writeAction));
+                _writeQueue.Add((builder, act));
             }
             else
             {
                 builder.SetException(new OperationCanceledException());
             }
+
             return builder.Task;
+        }
+
+        public void Write(Action<Transaction> writeAction)
+        {
+            if (!_writeQueue.IsAddingCompleted)
+            {
+                var act = new ActionOrFunction { writeAction = writeAction };
+
+                _writeQueue.Add((null, act));
+            }
+            else
+            {
+                throw new OperationCanceledException();
+            }
         }
 
         /// <summary>
         /// Perform a read transaction.
         /// </summary>
-        public T Read<T>(Func<Transaction, T> readJob)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T Read<T>(Func<Transaction, T> readFunc)
         {
             using (var txn = Transaction.Create(this, TransactionBeginFlags.ReadOnly))
             {
-                return readJob(txn);
+                return readFunc(txn);
             }
         }
 
@@ -163,7 +198,7 @@ namespace Spreads.LMDB
             if (!_isOpen) return;
 
             // let finish already added write tasks
-            WriteQueue.CompleteAdding();
+            _writeQueue.CompleteAdding();
             await _writeTask;
             _cts.Cancel();
             // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
@@ -334,12 +369,16 @@ namespace Spreads.LMDB
             NativeMethods.AssertExecute(NativeMethods.mdb_env_sync(_handle, force));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureOpened()
         {
-            if (!_isOpen)
-            {
-                throw new InvalidOperationException("Environment should be opened");
-            }
+            if (!_isOpen) { ThrowIfNotOpened(); }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowIfNotOpened()
+        {
+            throw new InvalidOperationException("Environment should be opened");
         }
 
         protected virtual void Dispose(bool disposing)
@@ -362,6 +401,12 @@ namespace Spreads.LMDB
         ~Environment()
         {
             Dispose(false);
+        }
+
+        private struct ActionOrFunction
+        {
+            public Func<Transaction, object> writeFunction;
+            public Action<Transaction> writeAction;
         }
     }
 }
