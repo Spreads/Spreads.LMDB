@@ -10,31 +10,196 @@ using System.Runtime.CompilerServices;
 
 namespace Spreads.LMDB
 {
+    public readonly struct Cursor : ICursor
+    {
+        internal readonly CursorImpl _impl;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Cursor(CursorImpl cursor)
+        {
+            _impl = cursor;
+        }
+
+        public void Dispose()
+        {
+            _impl.Dispose();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value)
+        {
+            return _impl.TryFind(direction, ref key, out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value)
+        {
+            return _impl.TryFindDup(direction, ref key, out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet(CursorGetOption operation, ref MDB_val key, ref MDB_val value)
+        {
+            return _impl.TryGet(operation, ref key, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong Count(CursorDeleteOption option)
+        {
+            return _impl.Count(option);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryPut(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
+        {
+            return _impl.TryPut(ref key, ref value, options);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Put(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
+        {
+            _impl.Put(ref key, ref value, options);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add(ref MDB_val key, ref MDB_val value)
+        {
+            _impl.Add(ref key, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Replace(ref MDB_val key, ref MDB_val value)
+        {
+            _impl.Replace(ref key, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Append(ref MDB_val key, ref MDB_val value, bool dup = false)
+        {
+            _impl.Append(ref key, ref value, dup);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Reserve(ref MDB_val key, ref MDB_val value)
+        {
+            _impl.Reserve(ref key, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Delete(bool removeAllDuplicateData = true)
+        {
+            return _impl.Delete(removeAllDuplicateData);
+        }
+    }
+
+    public readonly struct ReadOnlyCursor : IReadOnlyCursor
+    {
+        internal readonly CursorImpl _impl;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ReadOnlyCursor(CursorImpl cursor)
+        {
+            if (!cursor.IsReadOnly)
+            {
+                CursorImpl.ThrowCursorIsReadOnly();
+            }
+            _impl = cursor;
+        }
+
+        public void Dispose()
+        {
+            _impl.Dispose();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value)
+        {
+            return _impl.TryFind(direction, ref key, out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value)
+        {
+            return _impl.TryFindDup(direction, ref key, out value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet(CursorGetOption operation, ref MDB_val key, ref MDB_val value)
+        {
+            return _impl.TryGet(operation, ref key, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ulong Count(CursorDeleteOption option)
+        {
+            return _impl.Count(option);
+        }
+    }
+
+    public interface ICursor : IReadOnlyCursor
+    {
+        bool TryPut(ref MDB_val key, ref MDB_val value, CursorPutOptions options);
+
+        void Put(ref MDB_val key, ref MDB_val value, CursorPutOptions options);
+
+        void Add(ref MDB_val key, ref MDB_val value);
+
+        void Replace(ref MDB_val key, ref MDB_val value);
+
+        void Append(ref MDB_val key, ref MDB_val value, bool dup = false);
+
+        void Reserve(ref MDB_val key, ref MDB_val value);
+
+        /// <summary>
+        /// Delete current key/data pair.
+        /// This function deletes the key/data pair to which the cursor refers.
+        /// </summary>
+        /// <param name="removeAllDuplicateData">if true, delete all of the data items for the current key. This flag may only be specified if the database was opened with MDB_DUPSORT.</param>
+        bool Delete(bool removeAllDuplicateData = true);
+    }
+
+    public interface IReadOnlyCursor : IDisposable
+    {
+        bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value);
+
+        bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value);
+
+        bool TryGet(CursorGetOption operation, ref MDB_val key, ref MDB_val value);
+
+        /// <summary>
+        /// Return count of duplicates for current key.
+        /// This call is only valid on databases that support sorted duplicate data items MDB_DUPSORT.
+        /// </summary>
+        ulong Count(CursorDeleteOption option);
+    }
+
     /// <summary>
     /// Cursor to iterate over a database
     /// </summary>
-    public class Cursor : IDisposable
+    internal class CursorImpl : ICursor
     {
         // Read-only cursors are pooled in Database instances since cursors belog to a DB
         // Here we pool only the objects
         internal IntPtr _writeHandle;
 
         internal ReadCursorHandle _readHandle;
+        internal bool _forceReadOnly;
+
         internal Database _database;
-        internal Transaction _transaction;
+        internal TransactionImpl _transaction;
 
         #region Lifecycle
 
-        private static readonly ObjectPool<Cursor> CursorPool =
-            new ObjectPool<Cursor>(() => new Cursor(), System.Environment.ProcessorCount * 16);
+        private static readonly ObjectPool<CursorImpl> CursorPool =
+            new ObjectPool<CursorImpl>(() => new CursorImpl(), System.Environment.ProcessorCount * 16);
 
-        private Cursor()
+        private CursorImpl()
         { }
 
         /// <summary>
         /// Creates new instance of LightningCursor
         /// </summary>
-        internal static Cursor Create(Database db, Transaction txn, ReadCursorHandle rh = null)
+        internal static CursorImpl Create(Database db, TransactionImpl txn, ReadCursorHandle rh = null)
         {
             var c = CursorPool.Allocate();
 
@@ -45,17 +210,17 @@ namespace Spreads.LMDB
             {
                 if (!txn.IsReadOnly)
                 {
-                    throw new InvalidOperationException("Txn must be readonly to renew a cursor");
+                    TransactionImpl.ThrowlTransactionIsReadOnly("Txn must be readonly to renew a cursor");
                 }
 
                 if (rh.IsInvalid)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn._readHandle, db._handle, out IntPtr handle));
+                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn._readHandle.Handle, db._handle, out IntPtr handle));
                     rh.SetNewHandle(handle);
                 }
                 else
                 {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_renew(txn._readHandle, rh));
+                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_renew(txn._readHandle.Handle, rh.Handle));
                 }
 
                 c._readHandle = rh;
@@ -115,7 +280,7 @@ namespace Spreads.LMDB
             Dispose(true);
         }
 
-        ~Cursor()
+        ~CursorImpl()
         {
             Dispose(false);
         }
@@ -134,14 +299,10 @@ namespace Spreads.LMDB
         /// </summary>
         public Database Database => _database;
 
-        /// <summary>
-        /// Cursor's transaction.
-        /// </summary>
-        public Transaction Transaction => _transaction;
-
         #region sdb_cursor_find
 
-        internal bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value)
         {
             int res = 0;
             value = default;
@@ -151,7 +312,7 @@ namespace Spreads.LMDB
                 case Lookup.LT:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_lt(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_lt(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_lt(_writeHandle, ref key, out value)
                         );
                     break;
@@ -159,7 +320,7 @@ namespace Spreads.LMDB
                 case Lookup.LE:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_le(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_le(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_le(_writeHandle, ref key, out value)
                     );
                     break;
@@ -167,7 +328,7 @@ namespace Spreads.LMDB
                 case Lookup.EQ:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_eq(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_eq(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_eq(_writeHandle, ref key, out value)
                     );
                     break;
@@ -175,7 +336,7 @@ namespace Spreads.LMDB
                 case Lookup.GE:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_ge(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_ge(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_ge(_writeHandle, ref key, out value)
                     );
                     break;
@@ -183,7 +344,7 @@ namespace Spreads.LMDB
                 case Lookup.GT:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_gt(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_gt(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_gt(_writeHandle, ref key, out value)
                     );
                     break;
@@ -192,7 +353,8 @@ namespace Spreads.LMDB
             return res != NativeMethods.MDB_NOTFOUND;
         }
 
-        internal bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value)
         {
             int res = 0;
             value = default(MDB_val);
@@ -202,7 +364,7 @@ namespace Spreads.LMDB
                 case Lookup.LT:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_lt_dup(_writeHandle, ref key, out value)
                         );
                     break;
@@ -210,7 +372,7 @@ namespace Spreads.LMDB
                 case Lookup.LE:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_le_dup(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_le_dup(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_le_dup(_writeHandle, ref key, out value)
                         );
                     break;
@@ -218,7 +380,7 @@ namespace Spreads.LMDB
                 case Lookup.EQ:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_eq_dup(_writeHandle, ref key, out value)
                     );
                     break;
@@ -226,7 +388,7 @@ namespace Spreads.LMDB
                 case Lookup.GE:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_ge_dup(_writeHandle, ref key, out value)
                     );
                     break;
@@ -234,7 +396,7 @@ namespace Spreads.LMDB
                 case Lookup.GT:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle.Handle, ref key, out value)
                             : NativeMethods.sdb_cursor_get_gt_dup(_writeHandle, ref key, out value)
                     );
                     break;
@@ -247,11 +409,12 @@ namespace Spreads.LMDB
 
         #region mdb_cursor_get
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet(
             CursorGetOption operation, ref MDB_val key, ref MDB_val value)
         {
             var res = IsReadOnly
-                ? NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle, ref key, ref value, operation))
+                ? NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle.Handle, ref key, ref value, operation))
                 : NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_writeHandle, ref key, ref value, operation));
             return res != NativeMethods.MDB_NOTFOUND;
         }
@@ -265,16 +428,17 @@ namespace Spreads.LMDB
         {
             if (!(_readHandle == null && _writeHandle != IntPtr.Zero))
             {
-                ThrowNonWriteable();
+                ThrowCursorIsReadOnly();
             }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private void ThrowNonWriteable()
+        internal static void ThrowCursorIsReadOnly()
         {
             throw new InvalidOperationException("Cursor is readonly or invalid");
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryPut(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
         {
             EnsureWriteable();
@@ -282,24 +446,28 @@ namespace Spreads.LMDB
             return res == 0;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Put(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, options));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(ref MDB_val key, ref MDB_val value)
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, CursorPutOptions.NoOverwrite));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Replace(ref MDB_val key, ref MDB_val value)
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, CursorPutOptions.Current));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Append(ref MDB_val key, ref MDB_val value, bool dup = false)
         {
             EnsureWriteable();
@@ -308,6 +476,7 @@ namespace Spreads.LMDB
                     dup ? CursorPutOptions.AppendDuplicateData : CursorPutOptions.AppendData));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Reserve(ref MDB_val key, ref MDB_val value)
         {
             EnsureWriteable();
@@ -324,6 +493,7 @@ namespace Spreads.LMDB
         /// This function deletes the key/data pair to which the cursor refers.
         /// </summary>
         /// <param name="removeAllDuplicateData">if true, delete all of the data items for the current key. This flag may only be specified if the database was opened with MDB_DUPSORT.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Delete(bool removeAllDuplicateData = true)
         {
             EnsureWriteable();
@@ -337,6 +507,7 @@ namespace Spreads.LMDB
         /// </summary>
         /// <param name="option">Options for this operation. This parameter must be set to 0 or one of the values described here.
         ///     MDB_NODUPDATA - delete all of the data items for the current key. This flag may only be specified if the database was opened with MDB_DUPSORT.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool Delete(CursorDeleteOption option)
         {
             EnsureWriteable();
@@ -347,9 +518,10 @@ namespace Spreads.LMDB
         /// Return count of duplicates for current key.
         /// This call is only valid on databases that support sorted duplicate data items MDB_DUPSORT.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Count(CursorDeleteOption option)
         {
-            NativeMethods.AssertRead(NativeMethods.mdb_cursor_count(_readHandle, out var result));
+            NativeMethods.AssertRead(NativeMethods.mdb_cursor_count(_readHandle.Handle, out var result));
             return (ulong)result;
         }
 

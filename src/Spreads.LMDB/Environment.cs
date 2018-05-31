@@ -80,8 +80,9 @@ namespace Spreads.LMDB
                         var act = tuple.Item2;
                         try
                         {
-                            using (var txn = Transaction.Create(this, TransactionBeginFlags.ReadWrite))
+                            using (var transactionImpl = TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite))
                             {
+                                var txn = new Transaction(transactionImpl);
                                 if (tcs != null)
                                 {
                                     var res = act.writeFunction(txn);
@@ -169,22 +170,23 @@ namespace Spreads.LMDB
         /// Perform a read transaction.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T Read<T>(Func<Transaction, T> readFunc)
+        public T Read<T>(Func<ReadOnlyTransaction, T> readFunc)
         {
-            using (var txn = Transaction.Create(this, TransactionBeginFlags.ReadOnly))
+            using (var txn = TransactionImpl.Create(this, TransactionBeginFlags.ReadOnly))
             {
-                return readFunc(txn);
+                var rotxn = new ReadOnlyTransaction(txn);
+                return readFunc(rotxn);
             }
         }
 
         public async Task<Database> OpenDatabase(string name, DatabaseConfig config)
         {
-            return (Database)(await WriteAsync(txn =>
+            return (Database)await WriteAsync(txn =>
             {
-                var db = new Database(name, txn, config);
-                txn.Commit();
+                var db = new Database(name, txn._impl, config);
+                txn._impl.Commit();
                 return db;
-            }));
+            });
         }
 
         /// <summary>

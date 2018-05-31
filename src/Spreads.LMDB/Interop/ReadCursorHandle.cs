@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Spreads.LMDB.Interop
@@ -17,6 +18,12 @@ namespace Spreads.LMDB.Interop
         internal void SetNewHandle(IntPtr handle)
         {
             SetHandle(handle);
+        }
+
+        internal IntPtr Handle
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return handle; }
         }
 
         protected override bool ReleaseHandle()

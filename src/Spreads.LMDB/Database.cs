@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using System;
-using Spreads.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace Spreads.LMDB
 {
@@ -21,7 +22,7 @@ namespace Spreads.LMDB
         private readonly Environment _environment;
         private readonly string _name;
 
-        internal Database(string name, Transaction txn, DatabaseConfig config)
+        internal Database(string name, TransactionImpl txn, DatabaseConfig config)
         {
             if (txn.IsReadOnly) { throw new InvalidOperationException("Cannot create a DB with RO transaction"); }
             if (txn == null) { throw new ArgumentNullException(nameof(txn)); }
@@ -64,58 +65,71 @@ namespace Spreads.LMDB
         /// </summary>
         public DbFlags OpenFlags => _config.OpenFlags;
 
-
-        public Cursor OpenWriteCursor(Transaction txn)
+        /// <summary>
+        /// Open Read/Write cursor.
+        /// </summary>
+        public Cursor OpenCursor(Transaction txn)
         {
-            if (txn.IsReadOnly)
-            {
-                throw new InvalidOperationException("Transaction is readonly. Cannot open write cursor.");
-            }
-            return Cursor.Create(this, txn, null);
+            return new Cursor(CursorImpl.Create(this, txn._impl, null));
         }
 
-        public Cursor OpenReadCursor(Transaction txn)
+        public ReadOnlyCursor OpenReadOnlyCursor(ReadOnlyTransaction txn)
         {
-            if (!txn.IsReadOnly)
-            {
-                throw new InvalidOperationException("Transaction is not readonly. Cannot open read cursor.");
-            }
-
             var rh = ReadHandlePool.Allocate();
-            return Cursor.Create(this, txn, rh);
+            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, rh));
         }
 
         /// <summary>
         /// Drops the database.
         /// </summary>
+        public Task Drop()
+        {
+            return Environment.WriteAsync(txn =>
+            {
+                NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, true));
+                _handle = default;
+                return null;
+            });
+        }
+
+        /// <summary>
+        /// Drops the database inside the given transaction.
+        /// </summary>
         public bool Drop(Transaction transaction)
         {
-            using (var tx = Transaction.Create(_environment, TransactionBeginFlags.ReadWrite))
-            {
-                var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(tx._writeHandle, _handle, true));
-                _handle = default;
-                return res == 0;
-            }
+            var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(transaction._impl._writeHandle, _handle, true));
+            _handle = default;
+            return res == 0;
         }
 
         /// <summary>
         /// Truncates all data from the database.
         /// </summary>
+        public Task Truncate()
+        {
+            return Environment.WriteAsync(txn =>
+            {
+                NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
+                _handle = default;
+                return null;
+            });
+        }
+
+        /// <summary>
+        /// Truncates all data from the database inside the given transaction.
+        /// </summary>
         public bool Truncate(Transaction transaction)
         {
-            using (var tx = Transaction.Create(_environment, TransactionBeginFlags.ReadWrite))
-            {
-                var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(tx._writeHandle, _handle, false));
-                _handle = default;
-                return res == 0;
-            }
+            var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(transaction._impl._writeHandle, _handle, false));
+            _handle = default;
+            return res == 0;
         }
 
         public MDB_stat GetStat()
         {
-            using (var tx = Transaction.Create(Environment, TransactionBeginFlags.ReadOnly))
+            using (var tx = TransactionImpl.Create(Environment, TransactionBeginFlags.ReadOnly))
             {
-                NativeMethods.AssertRead(NativeMethods.mdb_stat(tx._readHandle, _handle, out var stat));
+                NativeMethods.AssertRead(NativeMethods.mdb_stat(tx._readHandle.Handle, _handle, out var stat));
                 return stat;
             }
         }

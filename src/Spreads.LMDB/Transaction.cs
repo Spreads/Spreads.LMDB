@@ -8,14 +8,57 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-//using Spreads.DB.Async;
-
 namespace Spreads.LMDB
 {
-    /// <summary>
-    /// Db transaction.
-    /// </summary>
-    public class Transaction : IDisposable
+    // NB: wrappers are only exposed from inside using(...){...} therefore they are not disposable, we always dispose inner TransactionImpl
+
+    public readonly struct Transaction
+    {
+        internal readonly TransactionImpl _impl;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Transaction(TransactionImpl txn)
+        {
+            _impl = txn;
+        }
+
+        /// <summary>
+        /// Commit all the operations of a transaction into the database.
+        /// All cursors opened within the transaction will be closed by this call.
+        /// The cursors and transaction handle will be freed and must not be used again after this call.
+        /// </summary>
+        public void Commit()
+        {
+            _impl.Commit();
+        }
+
+        /// <summary>
+        /// Abandon all the operations of the transaction instead of saving them.
+        /// All cursors opened within the transaction will be closed by this call.
+        /// The cursors and transaction handle will be freed and must not be used again after this call.
+        /// </summary>
+        public void Abort()
+        {
+            _impl.Abort();
+        }
+    }
+
+    public readonly struct ReadOnlyTransaction
+    {
+        internal readonly TransactionImpl _impl;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ReadOnlyTransaction(TransactionImpl txn)
+        {
+            if (!txn.IsReadOnly)
+            {
+                TransactionImpl.ThrowlTransactionIsReadOnly();
+            }
+            _impl = txn;
+        }
+    }
+
+    internal class TransactionImpl : IDisposable
     {
         private Environment _environment;
 
@@ -29,19 +72,19 @@ namespace Spreads.LMDB
 
         #region Lifecycle
 
-        private static readonly ObjectPool<Transaction> TxPool =
-            new ObjectPool<Transaction>(() => new Transaction(), System.Environment.ProcessorCount * 16);
+        private static readonly ObjectPool<TransactionImpl> TxPool =
+            new ObjectPool<TransactionImpl>(() => new TransactionImpl(), System.Environment.ProcessorCount * 16);
 
         private static readonly ObjectPool<ReadTransactionHandle> ReadHandlePool =
             new ObjectPool<ReadTransactionHandle>(() => new ReadTransactionHandle(), System.Environment.ProcessorCount * 16);
 
-        private Transaction()
+        private TransactionImpl()
         {
             _state = TransactionState.Disposed;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static Transaction Create(Environment environment, TransactionBeginFlags beginFlags)
+        internal static TransactionImpl Create(Environment environment, TransactionBeginFlags beginFlags)
         {
             environment.EnsureOpened();
 
@@ -68,7 +111,7 @@ namespace Spreads.LMDB
                 else
                 {
                     // renew
-                    NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(rh));
+                    NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(rh.Handle));
                 }
                 tx._readHandle = rh;
             }
@@ -95,7 +138,7 @@ namespace Spreads.LMDB
                 {
                     var rh = _readHandle;
                     _readHandle = null;
-                    NativeMethods.mdb_txn_reset(rh);
+                    NativeMethods.mdb_txn_reset(rh.Handle);
                     ReadHandlePool.Free(rh);
                     // handle will be finalized if do not in pool
                 }
@@ -117,6 +160,7 @@ namespace Spreads.LMDB
                         }
                         else
                         {
+                            Trace.TraceWarning("Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
                             NativeMethods.mdb_txn_abort(_writeHandle);
                         }
                     }
@@ -150,7 +194,7 @@ namespace Spreads.LMDB
             Dispose(true);
         }
 
-        ~Transaction()
+        ~TransactionImpl()
         {
             Dispose(false);
         }
@@ -167,6 +211,13 @@ namespace Spreads.LMDB
             throw new InvalidOperationException("Pooled tx must be in disposed state");
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        internal static void ThrowlTransactionIsReadOnly(string message = null)
+        {
+            message = message is null ? String.Empty : " " + message;
+            throw new InvalidOperationException("Transaction is not readonly." + message);
+        }
+
         #endregion Lifecycle
 
         /// <summary>
@@ -177,18 +228,17 @@ namespace Spreads.LMDB
         /// <summary>
         /// Transaction is read-only.
         /// </summary>
-        public bool IsReadOnly => _readHandle != null;
+        public bool IsReadOnly
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return _readHandle != null; }
+        }
 
         /// <summary>
         /// Current transaction state.
         /// </summary>
         internal TransactionState State => _state;
 
-        /// <summary>
-        /// Commit all the operations of a transaction into the database.
-        /// All cursors opened within the transaction will be closed by this call.
-        /// The cursors and transaction handle will be freed and must not be used again after this call.
-        /// </summary>
         public void Commit()
         {
             if (_state != TransactionState.Active)
@@ -204,11 +254,6 @@ namespace Spreads.LMDB
             _state = TransactionState.Commited;
         }
 
-        /// <summary>
-        /// Abandon all the operations of the transaction instead of saving them.
-        /// All cursors opened within the transaction will be closed by this call.
-        /// The cursors and transaction handle will be freed and must not be used again after this call.
-        /// </summary>
         public void Abort()
         {
             if (_state != TransactionState.Active)

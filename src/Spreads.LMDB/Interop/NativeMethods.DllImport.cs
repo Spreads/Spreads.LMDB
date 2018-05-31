@@ -105,13 +105,10 @@ namespace Spreads.LMDB.Interop
         public static extern void mdb_txn_abort(IntPtr txn);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void mdb_txn_abort(ReadTransactionHandle txn);
+        public static extern void mdb_txn_reset(IntPtr txn);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void mdb_txn_reset(ReadTransactionHandle txn);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_txn_renew(ReadTransactionHandle txn);
+        public static extern int mdb_txn_renew(IntPtr txn);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr mdb_version(out IntPtr major, out IntPtr minor, out IntPtr patch);
@@ -121,9 +118,6 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_stat(IntPtr txn, uint dbi, out MDB_stat stat);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_stat(ReadTransactionHandle txn, uint dbi, out MDB_stat stat);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_env_copy(IntPtr env, string path);
@@ -168,19 +162,13 @@ namespace Spreads.LMDB.Interop
         public static extern int mdb_cursor_open(IntPtr txn, uint dbi, out IntPtr cursor);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_cursor_open(ReadTransactionHandle txn, uint dbi, out IntPtr cursor);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void mdb_cursor_close(IntPtr cursor);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_cursor_renew(ReadTransactionHandle txn, ReadCursorHandle cursor);
+        public static extern int mdb_cursor_renew(IntPtr txn, IntPtr cursor);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_get(IntPtr cursor, ref MDB_val key, ref MDB_val data, CursorGetOption op);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_cursor_get(ReadCursorHandle cursor, ref MDB_val key, ref MDB_val data, CursorGetOption op);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_put(IntPtr cursor, ref MDB_val key, ref MDB_val data, CursorPutOptions flags);
@@ -193,9 +181,6 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_count(IntPtr cursor, out UIntPtr countp);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_cursor_count(ReadCursorHandle cursor, out UIntPtr countp);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_set_compare(IntPtr txn, uint dbi, [MarshalAs(UnmanagedType.FunctionPtr)]CompareFunction cmp);
@@ -237,37 +222,6 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_set_dupsort_as_sint64(IntPtr txn, uint dbi);
-
-        // Same as above with Ctrl+H IntPtr -> ReadCursorHandle
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_lt(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_le(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_eq(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_ge(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_gt(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_lt_dup(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_le_dup(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_eq_dup(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_ge_dup(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_gt_dup(ReadCursorHandle cursor, ref MDB_val key, out MDB_val data);
     }
 
 #pragma warning restore IDE1006 // Naming Styles
