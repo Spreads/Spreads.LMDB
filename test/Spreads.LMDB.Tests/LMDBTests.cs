@@ -11,9 +11,12 @@ namespace Spreads.LMDB.Tests
     public class LMDBTests
     {
         [Test]
-        public void ColumnTest()
+        public void CouldCreateEnvironment()
         {
-            Console.WriteLine("Could run tests");
+            Console.WriteLine(LMDBVersionInfo.Version);
+            //var env = new Environment("./Data");
+            //var stat = env.GetStat();
+            //Console.WriteLine("Could run tests");
         }
     }
 }

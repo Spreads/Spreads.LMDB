@@ -15,7 +15,9 @@
     <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
     <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
     <DelaySign>False</DelaySign>
+    <LangVersion>7.3</LangVersion>
   </PropertyGroup>
+
 
   <ItemGroup>
     <Compile Remove="SQLite\**" />
@@ -23,23 +25,19 @@
     <None Remove="SQLite\**" />
   </ItemGroup>
 
-  <!--<ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="..\..\lib\out\w64\bin\spreads_lmdb.dll.compressed">
       <Link>native\win.x64.spreads_lmdb.dll</Link>
       <LogicalName>win.x64.spreads_lmdb.dll</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="..\..\lib\out\l64\bin\spreads_lmdb.so.compressed">
+    <!--<EmbeddedResource Include="..\..\lib\out\l64\bin\spreads_lmdb.so.compressed">
       <Link>native\lin.x64.spreads_lmdb.so</Link>
       <LogicalName>lin.x64.spreads_lmdb.so</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>-->
-
-  <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="1.0.0-build1805300956R" />
+    </EmbeddedResource>-->
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Interop\" />
+    <PackageReference Include="Spreads.Core" Version="1.0.0-build1805300956R" />
   </ItemGroup>
 
 </Project>
