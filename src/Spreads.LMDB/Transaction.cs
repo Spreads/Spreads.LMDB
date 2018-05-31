@@ -76,7 +76,7 @@ namespace Spreads.LMDB
                     NativeMethods.mdb_txn_begin(environment._handle, IntPtr.Zero, beginFlags, out IntPtr handle));
                 tx._writeHandle = handle;
             }
-            // tx._state = TransactionState.Active;
+            tx._state = TransactionState.Active;
             return tx;
         }
 
@@ -109,7 +109,14 @@ namespace Spreads.LMDB
                 {
                     if (_state == TransactionState.Active)
                     {
-                        throw new InvalidOperationException("Cannot dispose not commited or aborted transaction");
+                        if (Environment.AutoCommit)
+                        {
+                            NativeMethods.mdb_txn_commit(_writeHandle);
+                        }
+                        else
+                        {
+                            NativeMethods.mdb_txn_abort(_writeHandle);
+                        }
                     }
                 }
                 else

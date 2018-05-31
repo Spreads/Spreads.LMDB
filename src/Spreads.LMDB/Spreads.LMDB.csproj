@@ -26,18 +26,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\..\lib\out\w64\bin\spreads_lmdb.dll.compressed">
-      <Link>native\win.x64.spreads_lmdb.dll</Link>
-      <LogicalName>win.x64.spreads_lmdb.dll</LogicalName>
+    <EmbeddedResource Include="..\..\lib\out\w64\bin\libspreads_lmdb.dll.compressed">
+      <Link>native\win.x64.libspreads_lmdb.dll</Link>
+      <LogicalName>win.x64.libspreads_lmdb.dll</LogicalName>
     </EmbeddedResource>
-    <!--<EmbeddedResource Include="..\..\lib\out\l64\bin\spreads_lmdb.so.compressed">
-      <Link>native\lin.x64.spreads_lmdb.so</Link>
-      <LogicalName>lin.x64.spreads_lmdb.so</LogicalName>
-    </EmbeddedResource>-->
+    <EmbeddedResource Include="..\..\lib\out\l64\bin\libspreads_lmdb.compressed">
+      <Link>native\lin.x64.libspreads_lmdb.so</Link>
+      <LogicalName>lin.x64.libspreads_lmdb.so</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="1.0.0-build1805300956R" />
+    <PackageReference Include="Spreads.Core" Version="1.0.0-build1805310656R" />
   </ItemGroup>
 
 </Project>

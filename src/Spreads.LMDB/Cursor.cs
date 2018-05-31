@@ -145,28 +145,50 @@ namespace Spreads.LMDB
         {
             int res = 0;
             value = default;
+
             switch (direction)
             {
                 case Lookup.LT:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_lt(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_lt(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_lt(_writeHandle, ref key, out value)
+                        );
                     break;
 
                 case Lookup.LE:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_le(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_le(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_le(_writeHandle, ref key, out value)
+                    );
                     break;
 
                 case Lookup.EQ:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_eq(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_eq(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_eq(_writeHandle, ref key, out value)
+                    );
                     break;
 
                 case Lookup.GE:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_ge(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_ge(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_ge(_writeHandle, ref key, out value)
+                    );
                     break;
 
                 case Lookup.GT:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_gt(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_gt(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_gt(_writeHandle, ref key, out value)
+                    );
                     break;
             }
+
             return res != NativeMethods.MDB_NOTFOUND;
         }
 
@@ -174,28 +196,50 @@ namespace Spreads.LMDB
         {
             int res = 0;
             value = default(MDB_val);
+
             switch (direction)
             {
                 case Lookup.LT:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_lt_dup(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_lt_dup(_writeHandle, ref key, out value)
+                        );
                     break;
 
                 case Lookup.LE:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_le_dup(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_le_dup(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_le_dup(_writeHandle, ref key, out value)
+                        );
                     break;
 
                 case Lookup.EQ:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_eq_dup(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_eq_dup(_writeHandle, ref key, out value)
+                    );
                     break;
 
                 case Lookup.GE:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_ge_dup(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_ge_dup(_writeHandle, ref key, out value)
+                    );
                     break;
 
                 case Lookup.GT:
-                    res = NativeMethods.AssertRead(NativeMethods.sdb_cursor_get_gt_dup(_readHandle, ref key, out value));
+                    res = NativeMethods.AssertRead(
+                        IsReadOnly
+                            ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle, ref key, out value)
+                            : NativeMethods.sdb_cursor_get_gt_dup(_writeHandle, ref key, out value)
+                    );
                     break;
             }
+
             return res != NativeMethods.MDB_NOTFOUND;
         }
 
@@ -206,7 +250,9 @@ namespace Spreads.LMDB
         public bool TryGet(
             CursorGetOption operation, ref MDB_val key, ref MDB_val value)
         {
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle, ref key, ref value, operation));
+            var res = IsReadOnly
+                ? NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle, ref key, ref value, operation))
+                : NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_writeHandle, ref key, ref value, operation));
             return res != NativeMethods.MDB_NOTFOUND;
         }
 

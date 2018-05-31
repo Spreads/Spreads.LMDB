@@ -1,7 +1,7 @@
 <Project>
     <PropertyGroup>
         <VersionPrefix>1.0.0</VersionPrefix>
-        <VersionSuffix>preview2</VersionSuffix>
+        <VersionSuffix>alpha</VersionSuffix>
         <VersionSuffix Condition="'$(VersionSuffix)' != '' And '$(BuildNumber)' != ''">$(VersionSuffix)-$(BuildNumber)</VersionSuffix>
         <PackageTags>LMDB;Data;Spreads</PackageTags>
         <Product>Spreads</Product>

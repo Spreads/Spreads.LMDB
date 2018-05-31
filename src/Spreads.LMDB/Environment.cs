@@ -70,22 +70,26 @@ namespace Spreads.LMDB
             {
                 while (!WriteQueue.IsCompleted)
                 {
-                    // BLOCKING
-                    var tuple = WriteQueue.Take(_cts.Token);
-                    var tcs = tuple.Item1;
-                    var func = tuple.Item2;
                     try
                     {
-                        using (var txn = Transaction.Create(this, TransactionBeginFlags.ReadWrite))
+                        // BLOCKING
+                        var tuple = WriteQueue.Take(_cts.Token);
+                        var tcs = tuple.Item1;
+                        var func = tuple.Item2;
+                        try
                         {
-                            var res = func(txn);
-                            tcs.SetResult(res);
+                            using (var txn = Transaction.Create(this, TransactionBeginFlags.ReadWrite))
+                            {
+                                var res = func(txn);
+                                tcs.SetResult(res);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            tcs.SetException(e);
                         }
                     }
-                    catch (Exception e)
-                    {
-                        tcs.SetException(e);
-                    }
+                    catch (InvalidOperationException) { }
                 }
             }, _cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
         }
@@ -107,6 +111,8 @@ namespace Spreads.LMDB
 
             _isOpen = true;
         }
+
+        public bool AutoCommit { get; set; } = false;
 
         /// <summary>
         /// Performs a write trasaction asynchronously.
@@ -138,7 +144,12 @@ namespace Spreads.LMDB
 
         public async Task<Database> OpenDatabase(string name, DatabaseConfig config)
         {
-            return (Database)(await WriteAsync(txn => new Database(name, txn, config)));
+            return (Database)(await WriteAsync(txn =>
+            {
+                var db = new Database(name, txn, config);
+                txn.Commit();
+                return db;
+            }));
         }
 
         /// <summary>
@@ -155,7 +166,7 @@ namespace Spreads.LMDB
             WriteQueue.CompleteAdding();
             await _writeTask;
             _cts.Cancel();
-            NativeMethods.mdb_env_close(_handle);
+            // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
             _handle.Dispose();
             _isOpen = false;
         }
@@ -298,16 +309,6 @@ namespace Spreads.LMDB
         /// Directory path to store database files.
         /// </summary>
         public string Directory => _directory;
-
-
-        /// <summary>
-        /// Create a transaction for use with the environment.
-        /// The transaction object MUST be disposed after reading or after Abort() or Commit().
-        /// </summary>
-        public Transaction ReadTransaction()
-        {
-            return Transaction.Create(this, TransactionBeginFlags.ReadOnly);
-        }
 
         /// <summary>
         /// Copy an MDB environment to the specified path.

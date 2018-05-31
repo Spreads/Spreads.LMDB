@@ -4,6 +4,7 @@
 
 using Spreads.Utils.Bootstrap;
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 // ReSharper disable UnusedMember.Global
@@ -21,14 +22,12 @@ namespace Spreads.LMDB.Interop
             Bootstrapper.Instance.Bootstrap<Environment>(
                 DbLibraryName,
                 null,
-                () => { },
-                (lib) => { },
-                () =>
-                {
-                });
+                () => { Debug.WriteLine("Native pre-copy"); },
+                (lib) => { Debug.WriteLine("Native post-copy"); },
+                () => { Debug.WriteLine("Native dispose"); });
         }
 
-        public const string DbLibraryName = "spreads_lmdb";
+        public const string DbLibraryName = "libspreads_lmdb";
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_env_create(out EnvironmentHandle env);
