@@ -4,6 +4,7 @@
 
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Spreads.LMDB.Interop
@@ -14,6 +15,12 @@ namespace Spreads.LMDB.Interop
             }
 
         public override bool IsInvalid => handle == IntPtr.Zero;
+
+        internal IntPtr Handle
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { return handle; }
+        }
 
         protected override bool ReleaseHandle() {
             NativeMethods.mdb_env_sync(handle, true);

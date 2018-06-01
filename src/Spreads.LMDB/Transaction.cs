@@ -105,7 +105,7 @@ namespace Spreads.LMDB
                 {
                     // create new
                     NativeMethods.AssertExecute(
-                        NativeMethods.mdb_txn_begin(environment._handle, IntPtr.Zero, beginFlags, out IntPtr handle));
+                        NativeMethods.mdb_txn_begin(environment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
                     rh.SetNewHandle(handle);
                 }
                 else
@@ -118,7 +118,7 @@ namespace Spreads.LMDB
             else
             {
                 NativeMethods.AssertExecute(
-                    NativeMethods.mdb_txn_begin(environment._handle, IntPtr.Zero, beginFlags, out IntPtr handle));
+                    NativeMethods.mdb_txn_begin(environment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
                 tx._writeHandle = handle;
             }
             tx._state = TransactionState.Active;

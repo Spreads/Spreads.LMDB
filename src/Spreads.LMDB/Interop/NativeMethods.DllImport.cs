@@ -93,10 +93,7 @@ namespace Spreads.LMDB.Interop
         public static extern int mdb_drop(IntPtr txn, uint dbi, bool del);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_txn_begin(EnvironmentHandle env, IntPtr parent, TransactionBeginFlags flags, out IntPtr txn);
-
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_txn_begin(EnvironmentHandle env, IntPtr parent, TransactionBeginFlags flags, out ReadTransactionHandle txn);
+        public static extern int mdb_txn_begin(IntPtr env, IntPtr parent, TransactionBeginFlags flags, out IntPtr txn);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_txn_commit(IntPtr txn);

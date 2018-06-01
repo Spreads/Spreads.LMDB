@@ -101,14 +101,33 @@ The library targets .NET Standard 2.0 and have native binaries for Linux, but cu
 Cannot load Linux's native using old loader library tested long time ago outside Windows. (Linux will not be a priority 
 for a couple of weeks.)
 
-https://github.com/dotnet/coreclr/issues/12707
-https://github.com/Wyamio/Wyam/issues/586
-
-
 The project has required binaries in `lib` folder - they are native dlls compressed with 
 `deflate` and embedded into the package dll as resources (this often simplifies deployment). 
 Source code maybe added later if someone needs it. Should work with normal binaries as well
 if not using two `TryFind` helper methods.
+
+
+# TODOs
+
+Quite often we need to 
+```
+begin txn -> open cursor -> do a single op -> close cursor -> close txn
+```
+That is 5 P/Invokes, which do matter in super fast LMDB context.
+
+Current Spreads-specific helper methods are already for this, but they accept 
+an open cursor and require txn renew + cursor renew + tx reset.
+
+There is non-negligible opportinity to make methods that accept only handles 
+(txn in reset state + RO sursor) and do all work in C. The read-only 
+handles will remain pooled on .NET side.
+
+Methods: 
+
+* [ ] Env.ReadCursor - renew both txc & cursor at once
+* [ ] Env.WriteCursor - create both
+* [ ] Env.CloseCursor - close both
+* [ ] Db.[single_cursor_op] - e.g. append or lookup
 
 # Contributing
 

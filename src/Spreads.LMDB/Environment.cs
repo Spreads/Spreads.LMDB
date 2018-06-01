@@ -23,13 +23,14 @@ namespace Spreads.LMDB
         private int _maxDbs;
         private int _pageSize;
 
-        private readonly BlockingCollection<(TaskCompletionSource<object>, ActionOrFunction)>
-           _writeQueue = new BlockingCollection<(TaskCompletionSource<object>, ActionOrFunction)>();
+        private readonly BlockingCollection<(TaskCompletionSource<object>, Delegates)>
+           _writeQueue = new BlockingCollection<(TaskCompletionSource<object>, Delegates)>();
 
-        private readonly Task _writeTask;
+        private readonly TaskCompletionSource<object> _writeTaskCompletion = new TaskCompletionSource<object>();
         private readonly CancellationTokenSource _cts;
         private readonly string _directory;
         private bool _isOpen;
+        private readonly ResultsObject _results = new ResultsObject();
 
         /// <summary>
         /// Creates a new instance of Environment.
@@ -68,7 +69,7 @@ namespace Spreads.LMDB
             // Accross processes, writes are synchronized via WriteTxnGate (TODO!)
             _cts = new CancellationTokenSource();
 
-            _writeTask = Task.Factory.StartNew(() =>
+            var threadStart = new ThreadStart(() =>
             {
                 while (!_writeQueue.IsCompleted)
                 {
@@ -77,39 +78,71 @@ namespace Spreads.LMDB
                         // BLOCKING
                         var tuple = _writeQueue.Take(_cts.Token);
                         var tcs = tuple.Item1;
-                        var act = tuple.Item2;
+                        var delegates = tuple.Item2;
                         try
                         {
                             using (var transactionImpl = TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite))
                             {
                                 var txn = new Transaction(transactionImpl);
-                                if (tcs != null)
+
+                                if (delegates.WriteFunction != null)
                                 {
-                                    var res = act.writeFunction(txn);
-                                    tcs.SetResult(res);
+                                    var res = delegates.WriteFunction(txn);
+                                    if (tcs != null)
+                                    {
+                                        tcs.SetResult(res);
+                                    }
+                                    else if (delegates.Counter > 0)
+                                    {
+                                        _results.SetResult(delegates.Counter, res);
+                                    }
+                                }
+                                else if (delegates.WriteAction != null)
+                                {
+                                    delegates.WriteAction(txn);
+                                    if (delegates.Counter > 0)
+                                    {
+                                        _results.SetResult(delegates.Counter, null);
+                                    }
                                 }
                                 else
                                 {
-                                    act.writeAction(txn);
+                                    System.Environment.FailFast("Wrong writer thread setup");
                                 }
                             }
                         }
                         catch (Exception e)
                         {
-                            if (tcs != null)
+                            if (delegates.WriteFunction != null)
                             {
-                                tcs.SetException(e);
+                                if (tcs != null)
+                                {
+                                    tcs.SetException(e);
+                                }
+                                else
+                                {
+                                    _results.SetException(delegates.Counter, e);
+                                }
+                            }
+                            else if (delegates.WriteAction != null)
+                            {
+                                if (delegates.Counter > 0)
+                                {
+                                    _results.SetException(delegates.Counter, e);
+                                }
                             }
                             else
                             {
-                                // TODO event or some otehr way to track unhandled exceptions
-                                Trace.TraceError(e.ToString());
+                                System.Environment.FailFast("Wrong writer thread setup");
                             }
                         }
                     }
                     catch (InvalidOperationException) { }
                 }
-            }, _cts.Token, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+                _writeTaskCompletion.SetResult(null);
+            });
+            var writeThread = new Thread(threadStart) { Name = "LMDB Writer thread" };
+            writeThread.Start();
         }
 
         /// <summary>
@@ -138,7 +171,7 @@ namespace Spreads.LMDB
         public Task<object> WriteAsync(Func<Transaction, object> writeFunction)
         {
             var builder = new TaskCompletionSource<object>();
-            var act = new ActionOrFunction { writeFunction = writeFunction };
+            var act = new Delegates { WriteFunction = writeFunction };
 
             if (!_writeQueue.IsAddingCompleted)
             {
@@ -152,17 +185,63 @@ namespace Spreads.LMDB
             return builder.Task;
         }
 
-        public void Write(Action<Transaction> writeAction)
+        /// <summary>
+        /// Queue a write action and spin until it is completed unless fireAndForget is true.
+        /// If fireAndForget is true then return immediately.
+        /// </summary>
+        public object Write(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
+            var counter = fireAndForget ? -1 : _results.Enter();
+
             if (!_writeQueue.IsAddingCompleted)
             {
-                var act = new ActionOrFunction { writeAction = writeAction };
+                var act = new Delegates
+                {
+                    WriteFunction = writeFunction,
+                    Counter = counter
+                };
 
                 _writeQueue.Add((null, act));
             }
             else
             {
                 throw new OperationCanceledException();
+            }
+
+            if (fireAndForget) { return null; }
+            var (res, ex) = _results.WaitExit(counter);
+            if (ex is null)
+            {
+                return res;
+            }
+            throw ex;
+        }
+
+        public void Write(Action<Transaction> writeAction, bool fireAndForget = false)
+        {
+            var counter = fireAndForget ? -1 : _results.Enter();
+
+            if (!_writeQueue.IsAddingCompleted)
+            {
+                var act = new Delegates
+                {
+                    WriteAction = writeAction,
+                    Counter = counter
+                };
+
+                _writeQueue.Add((null, act));
+            }
+            else
+            {
+                throw new OperationCanceledException();
+            }
+
+            if (fireAndForget) { return; }
+
+            var (_, ex) = _results.WaitExit(counter);
+            if (!(ex is null))
+            {
+                throw ex;
             }
         }
 
@@ -198,10 +277,10 @@ namespace Spreads.LMDB
         public async Task Close()
         {
             if (!_isOpen) return;
-
-            // let finish already added write tasks
             _writeQueue.CompleteAdding();
-            await _writeTask;
+            // let finish already added write tasks
+            await _writeTaskCompletion.Task;
+            Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
             _cts.Cancel();
             // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
             _handle.Dispose();
@@ -405,10 +484,54 @@ namespace Spreads.LMDB
             Dispose(false);
         }
 
-        private struct ActionOrFunction
+        private struct Delegates
         {
-            public Func<Transaction, object> writeFunction;
-            public Action<Transaction> writeAction;
+            public Func<Transaction, object> WriteFunction;
+            public Action<Transaction> WriteAction;
+            public long Counter;
+        }
+
+        internal class ResultsObject
+        {
+            // TODO Review this. Probably lack of sleep and cold didn't allow to come up with
+            // anything other than this that is not terribly slow and allows to pass objects back to caller
+            // Still, this is 0.45 MOPS vs Async case of 0.6 MOPS.
+            // Haven't profiled memory, if it doesn't allocate at all than more than OK
+
+            private long _counter;
+            private ConcurrentDictionary<long, (object, Exception)> _results = new ConcurrentDictionary<long, (object, Exception)>();
+
+            public long Enter()
+            {
+                return Interlocked.Increment(ref _counter);
+            }
+
+            public (object, Exception) WaitExit(long counter)
+            {
+                var sw = new SpinWait();
+                while (true)
+                {
+                    if (_results.TryRemove(counter, out var result))
+                    {
+                        return result;
+                    }
+                    sw.SpinOnce();
+                    if (sw.NextSpinWillYield)
+                    {
+                        sw.Reset();
+                    }
+                }
+            }
+
+            public void SetResult(long counter, object obj)
+            {
+                _results[counter] = (obj, null);
+            }
+
+            public void SetException(long counter, Exception e)
+            {
+                _results[counter] = (null, e);
+            }
         }
     }
 }
