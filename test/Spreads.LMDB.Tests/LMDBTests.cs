@@ -6,6 +6,7 @@ using NUnit.Framework;
 using Spreads.LMDB.Interop;
 using Spreads.Utils;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Spreads.LMDB.Tests
@@ -77,9 +78,101 @@ namespace Spreads.LMDB.Tests
         }
 
         [Test]
+        public unsafe void CouldReserve()
+        {
+            var env = new Environment("./Data",
+                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            env.MapSize = 126 * 1024 * 1024;
+
+            env.Open();
+
+            var db = env.OpenDatabase("db_reserve", new DatabaseConfig(DbFlags.Create)).Result;
+
+            var keyBytes = new byte[] { 1, 2, 3, 4 };
+            var valueBytes = new byte[4096 * 2 - 16];
+
+            var addresses = new long[100];
+            var addresses2 = new long[addresses.Length];
+
+            {
+                env.Write(txn =>
+                {
+                    // var db2 = new Database("db_reserve", txn._impl, new DatabaseConfig(DbFlags.Create));
+
+                    var addr = 0L;
+                    var c = db.OpenCursor(txn);
+                    for (int i = 0; i < addresses.Length; i++)
+                    {
+                        keyBytes[3] = (byte)i;
+                        fixed (void* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
+                        {
+                            var key = new MDB_val((IntPtr)keyBytes.Length, (IntPtr)keyPtr);
+                            var value = new MDB_val((IntPtr)valueBytes.Length, (IntPtr)valPtr);
+
+                            var stat1 = db.GetStat();
+
+                            // c.Put(ref key, ref value, CursorPutOptions.ReserveSpace);
+                            db.Put(txn, ref key, ref value, TransactionPutOptions.ReserveSpace);
+                            // Console.WriteLine((long)value.mv_data);
+
+                            if (i > 0)
+                            {
+                                addresses[i] = (long)value.mv_data - addr;
+                                Console.WriteLine((long)value.mv_data + " - " + (long)value.mv_data % 4096 + " - " +
+                                                  addresses[i]);
+                            }
+
+                            addr = (long)value.mv_data;
+                        }
+                    }
+
+                    c.Dispose();
+                    txn.Commit();
+                });
+            }
+
+            Console.WriteLine("---------------------------");
+
+            env.Read(txn =>
+            {
+                // var c = db.OpenReadOnlyCursor(txn);
+
+                var addr = 0L;
+                for (int i = 0; i < addresses.Length; i++)
+                {
+                    keyBytes[3] = (byte)i;
+                    fixed (void* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
+                    {
+                        var key = new MDB_val((IntPtr)keyBytes.Length, (IntPtr)keyPtr);
+                        var value = new MDB_val((IntPtr)valueBytes.Length, (IntPtr)valPtr);
+
+                        // c.TryGet(CursorGetOption.SetKey, ref key, ref value);
+                        db.TryGet(txn, ref key, out value);
+                        //db.Put(txn, ref key, ref value, TransactionPutOptions.ReserveSpace);
+                        // Console.WriteLine((long)value.mv_data);
+
+                        if (i > 0)
+                        {
+                            addresses2[i] = (long)value.mv_data - addr;
+                            Console.WriteLine((long)value.mv_data + " - " + (long)value.mv_data % 4096 + " - " + addresses2[i] + " - " + addresses[i]);
+                            System.Runtime.CompilerServices.Unsafe.WriteUnaligned(value.mv_data, i);
+                        }
+                        addr = (long)value.mv_data;
+                    }
+                }
+                // c.Dispose();
+            });
+            var stat = env.GetStat();
+            var dbstat = db.GetStat();
+            Console.WriteLine("Oveflow pages: " + stat.ms_overflow_pages);
+            env.Close().Wait();
+        }
+
+        [Test]
         public void CouldWrite()
         {
-            var env = new Environment("./Data");
+            var env = new Environment("./Data",
+                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
             var stat = env.GetStat();
 
@@ -104,8 +197,6 @@ namespace Spreads.LMDB.Tests
                 }
 
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
-
-                ;
             });
 
             env.Close().Wait();
@@ -233,9 +324,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public void CouldWriteAndReadProfileWriteSYNCPath()
         {
-            var env = new Environment("./Data",
-                // for any other config we have SQLite :)
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = new Environment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)).Result;
@@ -285,6 +374,64 @@ namespace Spreads.LMDB.Tests
             });
 
             env.Close().Wait();
+        }
+
+        [Test, Explicit("long runnning")]
+        public async Task CouldWriteDupfixed()
+        {
+            var env = new Environment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+
+            env.MapSize = 100 * 1024 * 1024;
+            env.Open();
+
+            var db = await env.OpenDatabase("dupfixed_db",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
+
+            //await db.Drop();
+            //db = await env.OpenDatabase("dupfixed_db",
+            //    new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
+
+            var valueHolder = new int[1];
+            var mem = new Memory<int>(valueHolder);
+            var handle = mem.Pin();
+            var count = 1_000_000;
+
+            using (Benchmark.Run("Write sync transactions", count))
+            {
+                for (var i = 1; i < count; i++)
+                {
+                    try
+                    {
+                        valueHolder[0] = i;
+                        await db.PutAsync(0, i, TransactionPutOptions.AppendDuplicateData);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.ToString());
+                    }
+                    //await env.WriteAsync(txn =>
+                    //{
+                    //    valueHolder[0] = i;
+                    //    var key = ((Memory<int>)keyHolder).AsMDBValUnsafe();
+                    //    var value = ((Memory<int>)valueHolder).AsMDBValUnsafe();
+
+                    //    db.Append(txn, ref key, ref value, true);
+
+                    //    //using (var cursor = db.OpenCursor(txn))
+                    //    //{
+                    //    //    cursor.Append(ref key, ref value, true);
+                    //    //}
+
+                    //    txn.Commit();
+                    //    return null;
+                    //});
+                }
+            }
+            handle.Dispose();
+
+            Benchmark.Dump();
+
+            await env.Close();
         }
     }
 }

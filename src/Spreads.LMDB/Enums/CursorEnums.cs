@@ -109,7 +109,7 @@ namespace Spreads.LMDB
     /// Special options for cursor put operation.
     /// </summary>
     [Flags]
-    public enum CursorPutOptions {
+    public enum CursorPutOptions : uint {
         /// <summary>
         /// No special behavior.
         /// </summary>

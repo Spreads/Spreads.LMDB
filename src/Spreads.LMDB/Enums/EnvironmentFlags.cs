@@ -86,6 +86,7 @@ namespace Spreads.LMDB
         /// application must also serialize the write transactions in an OS thread, since LMDB's
         ///  write locking is unaware of the user threads.
         /// </summary>
+        [Obsolete("This option if forced in Spreads.LMDB")]
         NoTls = 0x200000,
 
         /// <summary>

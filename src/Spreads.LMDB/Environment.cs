@@ -43,7 +43,9 @@ namespace Spreads.LMDB
             UnixAccessMode accessMode = UnixAccessMode.Default)
         {
             // we need NoTLS to work well with .NET Tasks, see docs about writers that need a dedicated thread
+#pragma warning disable CS0618 // Type or member is obsolete
             openFlags = openFlags | DbEnvironmentFlags.NoTls;
+#pragma warning restore CS0618 // Type or member is obsolete
 
             // this is machine-local storage for each user.
             if (string.IsNullOrWhiteSpace(directory))
@@ -79,36 +81,44 @@ namespace Spreads.LMDB
                         var tuple = _writeQueue.Take(_cts.Token);
                         var tcs = tuple.Item1;
                         var delegates = tuple.Item2;
+                        var transactionImpl = delegates.SkipTxnCreate
+                            ? null : TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
                         try
                         {
-                            using (var transactionImpl = TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite))
-                            {
-                                var txn = new Transaction(transactionImpl);
+                            // TODO for some methods such as mbd_put we should have a C method
+                            // that begins/end txn automatically
+                            // we still need to pass call to it here, but we could avoid txn creation
+                            // and two P/Invokes
 
-                                if (delegates.WriteFunction != null)
+                            var txn = new Transaction(transactionImpl);
+
+                            if (delegates.WriteFunction != null)
+                            {
+                                var res = delegates.WriteFunction(txn);
+                                if (tcs != null)
                                 {
-                                    var res = delegates.WriteFunction(txn);
-                                    if (tcs != null)
-                                    {
-                                        tcs.SetResult(res);
-                                    }
-                                    else if (delegates.Counter > 0)
-                                    {
-                                        _results.SetResult(delegates.Counter, res);
-                                    }
+                                    tcs.SetResult(res);
                                 }
-                                else if (delegates.WriteAction != null)
+                                else if (delegates.Counter > 0)
                                 {
-                                    delegates.WriteAction(txn);
-                                    if (delegates.Counter > 0)
-                                    {
-                                        _results.SetResult(delegates.Counter, null);
-                                    }
+                                    _results.SetResult(delegates.Counter, res);
                                 }
-                                else
+                            }
+                            else if (delegates.WriteAction != null)
+                            {
+                                delegates.WriteAction(txn);
+                                if (tcs != null)
                                 {
-                                    System.Environment.FailFast("Wrong writer thread setup");
+                                    tcs.SetResult(null);
                                 }
+                                else if (delegates.Counter > 0)
+                                {
+                                    _results.SetResult(delegates.Counter, null);
+                                }
+                            }
+                            else
+                            {
+                                System.Environment.FailFast("Wrong writer thread setup");
                             }
                         }
                         catch (Exception e)
@@ -119,14 +129,18 @@ namespace Spreads.LMDB
                                 {
                                     tcs.SetException(e);
                                 }
-                                else
+                                else if (delegates.Counter > 0)
                                 {
                                     _results.SetException(delegates.Counter, e);
                                 }
                             }
                             else if (delegates.WriteAction != null)
                             {
-                                if (delegates.Counter > 0)
+                                if (tcs != null)
+                                {
+                                    tcs.SetException(e);
+                                }
+                                else if (delegates.Counter > 0)
                                 {
                                     _results.SetException(delegates.Counter, e);
                                 }
@@ -135,6 +149,10 @@ namespace Spreads.LMDB
                             {
                                 System.Environment.FailFast("Wrong writer thread setup");
                             }
+                        }
+                        finally
+                        {
+                            transactionImpl?.Dispose();
                         }
                     }
                     catch (InvalidOperationException) { }
@@ -170,8 +188,30 @@ namespace Spreads.LMDB
         /// </summary>
         public Task<object> WriteAsync(Func<Transaction, object> writeFunction)
         {
+            return WriteAsync(writeFunction, false);
+        }
+
+        internal Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool skipTxnCreate)
+        {
             var builder = new TaskCompletionSource<object>();
-            var act = new Delegates { WriteFunction = writeFunction };
+            var act = new Delegates { WriteFunction = writeFunction, SkipTxnCreate = skipTxnCreate };
+
+            if (!_writeQueue.IsAddingCompleted)
+            {
+                _writeQueue.Add((builder, act));
+            }
+            else
+            {
+                builder.SetException(new OperationCanceledException());
+            }
+
+            return builder.Task;
+        }
+
+        public Task WriteAsync(Action<Transaction> writeFunction)
+        {
+            var builder = new TaskCompletionSource<object>();
+            var act = new Delegates { WriteAction = writeFunction };
 
             if (!_writeQueue.IsAddingCompleted)
             {
@@ -191,6 +231,11 @@ namespace Spreads.LMDB
         /// </summary>
         public object Write(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
+            return Write(writeFunction, fireAndForget, false);
+        }
+
+        public object Write(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
+        {
             var counter = fireAndForget ? -1 : _results.Enter();
 
             if (!_writeQueue.IsAddingCompleted)
@@ -198,7 +243,8 @@ namespace Spreads.LMDB
                 var act = new Delegates
                 {
                     WriteFunction = writeFunction,
-                    Counter = counter
+                    Counter = counter,
+                    SkipTxnCreate = skipTxnCreate
                 };
 
                 _writeQueue.Add((null, act));
@@ -255,6 +301,16 @@ namespace Spreads.LMDB
             {
                 var rotxn = new ReadOnlyTransaction(txn);
                 return readFunc(rotxn);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Read(Action<ReadOnlyTransaction> readAction)
+        {
+            using (var txn = TransactionImpl.Create(this, TransactionBeginFlags.ReadOnly))
+            {
+                var rotxn = new ReadOnlyTransaction(txn);
+                readAction(rotxn);
             }
         }
 
@@ -489,6 +545,7 @@ namespace Spreads.LMDB
             public Func<Transaction, object> WriteFunction;
             public Action<Transaction> WriteAction;
             public long Counter;
+            public bool SkipTxnCreate;
         }
 
         internal class ResultsObject

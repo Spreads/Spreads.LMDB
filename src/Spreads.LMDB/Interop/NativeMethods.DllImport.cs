@@ -219,6 +219,10 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_set_dupsort_as_sint64(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_put(IntPtr env, uint dbi, ref MDB_val key, ref MDB_val data, TransactionPutOptions flags);
+
     }
 
 #pragma warning restore IDE1006 // Naming Styles

@@ -4,8 +4,12 @@
 
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
+using Spreads.Serialization;
 using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using static System.Runtime.CompilerServices.Unsafe;
 
 namespace Spreads.LMDB
 {
@@ -148,6 +152,198 @@ namespace Spreads.LMDB
                 stat.ms_leaf_pages.ToInt64() +
                 stat.ms_overflow_pages.ToInt64();
             return stat.ms_psize * totalPages;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Put(Transaction txn, ref MDB_val key, ref MDB_val value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+        {
+            NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
+                ref key, ref value, flags));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Put<TKey, TValue>(Transaction txn, ReadOnlyMemory<TKey> key, ReadOnlyMemory<TValue> value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+            where TKey : struct where TValue : struct
+        {
+            var keyBytesSpan = MemoryMarshal.Cast<TKey, byte>(key.Span);
+            var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
+            fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
+            {
+                var key1 = new MDB_val((IntPtr)keyBytesSpan.Length, (IntPtr)keyPtr);
+                var value1 = new MDB_val((IntPtr)valueBytesSpan.Length, (IntPtr)valuePtr);
+                NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
+                    ref key1, ref value1,
+                    flags));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Put<TKey, TValue>(Transaction txn, TKey key, TValue value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var valuePtr = AsPointer(ref value);
+            var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
+            var value1 = new MDB_val((IntPtr)TypeHelper<TValue>.Size, (IntPtr)valuePtr);
+            NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
+                ref key1, ref value1,
+                flags));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void Put(ref MDB_val key, ref MDB_val value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+        {
+            var key2 = new MDB_val2(key);
+            var value2 = new MDB_val2(value);
+            Environment.Write(txn =>
+            {
+                var k = key2.AsMDBVal();
+                var v = value2.AsMDBVal();
+
+                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                    ref k, ref v,
+                    flags));
+                key2 = new MDB_val2(k);
+                value2 = new MDB_val2(v);
+                return null;
+            }, false, true);
+            key = key2.AsMDBVal();
+            value = value2.AsMDBVal();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Put<TKey, TValue>(ReadOnlyMemory<TKey> key, ReadOnlyMemory<TValue> value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+            where TKey : struct where TValue : struct
+        {
+            Environment.Write(txn =>
+            {
+                var keyBytesSpan = MemoryMarshal.Cast<TKey, byte>(key.Span);
+                var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
+                fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
+                {
+                    var key1 = new MDB_val((IntPtr)keyBytesSpan.Length, (IntPtr)keyPtr);
+                    var value1 = new MDB_val((IntPtr)valueBytesSpan.Length, (IntPtr)valuePtr);
+                    NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                        ref key1, ref value1,
+                        flags));
+                }
+                return null;
+            }, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Put<TKey, TValue>(TKey key, TValue value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+            where TKey : struct where TValue : struct
+        {
+            Environment.Write(txn =>
+            {
+                var keyPtr = AsPointer(ref key);
+                var valuePtr = AsPointer(ref value);
+                var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
+                var value1 = new MDB_val((IntPtr)TypeHelper<TValue>.Size, (IntPtr)valuePtr);
+                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                    ref key1, ref value1,
+                    flags));
+
+                return null;
+            }, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe Task PutAsync<TKey, TValue>(ReadOnlyMemory<TKey> key, ReadOnlyMemory<TValue> value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+            where TKey : struct where TValue : struct
+        {
+            return Environment.WriteAsync(txn =>
+            {
+                var keyBytesSpan = MemoryMarshal.Cast<TKey, byte>(key.Span);
+                var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
+                fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
+                {
+                    var key1 = new MDB_val((IntPtr)keyBytesSpan.Length, (IntPtr)keyPtr);
+                    var value1 = new MDB_val((IntPtr)valueBytesSpan.Length, (IntPtr)valuePtr);
+                    NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                        ref key1, ref value1,
+                        flags));
+                }
+                return null;
+            }, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe Task PutAsync<TKey, TValue>(TKey key, TValue value,
+            TransactionPutOptions flags = TransactionPutOptions.None)
+            where TKey : struct where TValue : struct
+        {
+            return Environment.WriteAsync(txn =>
+            {
+                var keyPtr = AsPointer(ref key);
+                var valuePtr = AsPointer(ref value);
+                var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
+                var value1 = new MDB_val((IntPtr)TypeHelper<TValue>.Size, (IntPtr)valuePtr);
+                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                    ref key1, ref value1,
+                    flags));
+
+                return null;
+            }, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet(Transaction txn, ref MDB_val key, out MDB_val value)
+        {
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle, ref key, out value));
+            return res != NativeMethods.MDB_NOTFOUND;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryGet<TKey, TValue>(Transaction txn, ref TKey key, out TValue value)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle,
+                ref key1, out MDB_val value1));
+            if (res != NativeMethods.MDB_NOTFOUND)
+            {
+                key = ReadUnaligned<TKey>(key1.mv_data);
+                value = ReadUnaligned<TValue>(value1.mv_data);
+                return true;
+            }
+
+            value = default;
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet(ReadOnlyTransaction txn, ref MDB_val key, out MDB_val value)
+        {
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle, ref key, out value));
+            return res != NativeMethods.MDB_NOTFOUND;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryGet<TKey, TValue>(ReadOnlyTransaction txn, ref TKey key, out TValue value)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle,
+                ref key1, out MDB_val value1));
+            if (res != NativeMethods.MDB_NOTFOUND)
+            {
+                value = ReadUnaligned<TValue>(value1.mv_data);
+                return true;
+            }
+
+            value = default;
+            return false;
         }
 
         protected virtual void Dispose(bool disposing)
