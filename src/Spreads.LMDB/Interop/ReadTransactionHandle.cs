@@ -15,9 +15,9 @@ namespace Spreads.LMDB.Interop
 
         public override bool IsInvalid => handle == IntPtr.Zero;
 
-        internal void SetNewHandle(IntPtr handle)
+        internal void SetNewHandle(IntPtr newHandle)
         {
-            SetHandle(handle);
+            SetHandle(newHandle);
         }
 
         internal IntPtr Handle

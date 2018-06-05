@@ -9,6 +9,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Spreads.Buffers;
 using static System.Runtime.CompilerServices.Unsafe;
 
 namespace Spreads.LMDB
@@ -155,7 +156,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Put(Transaction txn, ref MDB_val key, ref MDB_val value,
+        public void Put(Transaction txn, ref DirectBuffer key, ref DirectBuffer value,
             TransactionPutOptions flags = TransactionPutOptions.None)
         {
             NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
@@ -171,8 +172,8 @@ namespace Spreads.LMDB
             var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
             fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
             {
-                var key1 = new MDB_val((IntPtr)keyBytesSpan.Length, (IntPtr)keyPtr);
-                var value1 = new MDB_val((IntPtr)valueBytesSpan.Length, (IntPtr)valuePtr);
+                var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
+                var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
                 NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
                     ref key1, ref value1,
                     flags));
@@ -186,33 +187,33 @@ namespace Spreads.LMDB
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
-            var value1 = new MDB_val((IntPtr)TypeHelper<TValue>.Size, (IntPtr)valuePtr);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
+            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.Size, (byte*)valuePtr);
             NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
                 ref key1, ref value1,
                 flags));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Put(ref MDB_val key, ref MDB_val value,
+        internal void Put(ref DirectBuffer key, ref DirectBuffer value,
             TransactionPutOptions flags = TransactionPutOptions.None)
         {
-            var key2 = new MDB_val2(key);
-            var value2 = new MDB_val2(value);
+            var key2 = key;
+            var value2 = value;
             Environment.Write(txn =>
             {
-                var k = key2.AsMDBVal();
-                var v = value2.AsMDBVal();
+                var k = key2;
+                var v = value2;
 
                 NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
                     ref k, ref v,
                     flags));
-                key2 = new MDB_val2(k);
-                value2 = new MDB_val2(v);
+                key2 = k;
+                value2 = v;
                 return null;
             }, false, true);
-            key = key2.AsMDBVal();
-            value = value2.AsMDBVal();
+            key = key2;
+            value = value2;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -226,8 +227,8 @@ namespace Spreads.LMDB
                 var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
                 fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
                 {
-                    var key1 = new MDB_val((IntPtr)keyBytesSpan.Length, (IntPtr)keyPtr);
-                    var value1 = new MDB_val((IntPtr)valueBytesSpan.Length, (IntPtr)valuePtr);
+                    var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
+                    var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
                     NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
                         ref key1, ref value1,
                         flags));
@@ -245,8 +246,8 @@ namespace Spreads.LMDB
             {
                 var keyPtr = AsPointer(ref key);
                 var valuePtr = AsPointer(ref value);
-                var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
-                var value1 = new MDB_val((IntPtr)TypeHelper<TValue>.Size, (IntPtr)valuePtr);
+                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
+                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.Size, (byte*)valuePtr);
                 NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
                     ref key1, ref value1,
                     flags));
@@ -266,8 +267,8 @@ namespace Spreads.LMDB
                 var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
                 fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
                 {
-                    var key1 = new MDB_val((IntPtr)keyBytesSpan.Length, (IntPtr)keyPtr);
-                    var value1 = new MDB_val((IntPtr)valueBytesSpan.Length, (IntPtr)valuePtr);
+                    var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
+                    var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
                     NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
                         ref key1, ref value1,
                         flags));
@@ -285,8 +286,8 @@ namespace Spreads.LMDB
             {
                 var keyPtr = AsPointer(ref key);
                 var valuePtr = AsPointer(ref value);
-                var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
-                var value1 = new MDB_val((IntPtr)TypeHelper<TValue>.Size, (IntPtr)valuePtr);
+                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
+                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.Size, (byte*)valuePtr);
                 NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
                     ref key1, ref value1,
                     flags));
@@ -296,7 +297,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(Transaction txn, ref MDB_val key, out MDB_val value)
+        public bool TryGet(Transaction txn, ref DirectBuffer key, out DirectBuffer value)
         {
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle, ref key, out value));
             return res != NativeMethods.MDB_NOTFOUND;
@@ -307,13 +308,13 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle,
-                ref key1, out MDB_val value1));
+                ref key1, out DirectBuffer value1));
             if (res != NativeMethods.MDB_NOTFOUND)
             {
-                key = ReadUnaligned<TKey>(key1.mv_data);
-                value = ReadUnaligned<TValue>(value1.mv_data);
+                key = ReadUnaligned<TKey>((byte*)key1.Data);
+                value = ReadUnaligned<TValue>((byte*)value1.Data);
                 return true;
             }
 
@@ -322,7 +323,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(ReadOnlyTransaction txn, ref MDB_val key, out MDB_val value)
+        public bool TryGet(ReadOnlyTransaction txn, ref DirectBuffer key, out DirectBuffer value)
         {
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle, ref key, out value));
             return res != NativeMethods.MDB_NOTFOUND;
@@ -333,12 +334,12 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new MDB_val((IntPtr)TypeHelper<TKey>.Size, (IntPtr)keyPtr);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle,
-                ref key1, out MDB_val value1));
+                ref key1, out DirectBuffer value1));
             if (res != NativeMethods.MDB_NOTFOUND)
             {
-                value = ReadUnaligned<TValue>(value1.mv_data);
+                value = ReadUnaligned<TValue>((byte*)value1.Data);
                 return true;
             }
 

@@ -8,6 +8,7 @@ using Spreads.Utils;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Spreads.Buffers;
 
 namespace Spreads.LMDB.Tests
 {
@@ -55,9 +56,9 @@ namespace Spreads.LMDB.Tests
 
             await env.WriteAsync(txn =>
             {
-                var key = new MDB_val(values);
-                var value = new MDB_val(values);
-                MDB_val value2 = default;
+                var key = new DirectBuffer(values);
+                var value = new DirectBuffer(values);
+                DirectBuffer value2 = default;
 
                 using (var cursor = db.OpenCursor(txn))
                 {
@@ -104,10 +105,10 @@ namespace Spreads.LMDB.Tests
                     for (int i = 0; i < addresses.Length; i++)
                     {
                         keyBytes[3] = (byte)i;
-                        fixed (void* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
+                        fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                         {
-                            var key = new MDB_val((IntPtr)keyBytes.Length, (IntPtr)keyPtr);
-                            var value = new MDB_val((IntPtr)valueBytes.Length, (IntPtr)valPtr);
+                            var key = new DirectBuffer((IntPtr)keyBytes.Length, keyPtr);
+                            var value = new DirectBuffer((IntPtr)valueBytes.Length, valPtr);
 
                             var stat1 = db.GetStat();
 
@@ -117,12 +118,12 @@ namespace Spreads.LMDB.Tests
 
                             if (i > 0)
                             {
-                                addresses[i] = (long)value.mv_data - addr;
-                                Console.WriteLine((long)value.mv_data + " - " + (long)value.mv_data % 4096 + " - " +
+                                addresses[i] = (long)value.Data - addr;
+                                Console.WriteLine((long)value.Data + " - " + (long)value.Data % 4096 + " - " +
                                                   addresses[i]);
                             }
 
-                            addr = (long)value.mv_data;
+                            addr = (long)value.Data;
                         }
                     }
 
@@ -141,10 +142,10 @@ namespace Spreads.LMDB.Tests
                 for (int i = 0; i < addresses.Length; i++)
                 {
                     keyBytes[3] = (byte)i;
-                    fixed (void* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
+                    fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                     {
-                        var key = new MDB_val((IntPtr)keyBytes.Length, (IntPtr)keyPtr);
-                        var value = new MDB_val((IntPtr)valueBytes.Length, (IntPtr)valPtr);
+                        var key = new DirectBuffer((IntPtr)keyBytes.Length, keyPtr);
+                        var value = new DirectBuffer((IntPtr)valueBytes.Length, valPtr);
 
                         // c.TryGet(CursorGetOption.SetKey, ref key, ref value);
                         db.TryGet(txn, ref key, out value);
@@ -153,11 +154,11 @@ namespace Spreads.LMDB.Tests
 
                         if (i > 0)
                         {
-                            addresses2[i] = (long)value.mv_data - addr;
-                            Console.WriteLine((long)value.mv_data + " - " + (long)value.mv_data % 4096 + " - " + addresses2[i] + " - " + addresses[i]);
-                            System.Runtime.CompilerServices.Unsafe.WriteUnaligned(value.mv_data, i);
+                            addresses2[i] = (long)value.Data - addr;
+                            Console.WriteLine((long)value.Data + " - " + (long)value.Data % 4096 + " - " + addresses2[i] + " - " + addresses[i]);
+                            System.Runtime.CompilerServices.Unsafe.WriteUnaligned((void*)value.Data, i);
                         }
-                        addr = (long)value.mv_data;
+                        addr = (long)value.Data;
                     }
                 }
                 // c.Dispose();
@@ -182,9 +183,9 @@ namespace Spreads.LMDB.Tests
 
             env.Write(txn =>
             {
-                var key = new MDB_val(values);
-                var value = new MDB_val(values);
-                MDB_val value2 = default;
+                var key = new DirectBuffer(values);
+                var value = new DirectBuffer(values);
+                DirectBuffer value2 = default;
 
                 using (var cursor = db.OpenCursor(txn))
                 {
@@ -214,9 +215,9 @@ namespace Spreads.LMDB.Tests
 
             await env.WriteAsync(txn =>
             {
-                var key = new MDB_val(values);
-                var value = new MDB_val(values);
-                MDB_val value2 = default;
+                var key = new DirectBuffer(values);
+                var value = new DirectBuffer(values);
+                DirectBuffer value2 = default;
 
                 using (var cursor = db.OpenCursor(txn))
                 {
@@ -228,9 +229,9 @@ namespace Spreads.LMDB.Tests
 
             env.Read(txn =>
             {
-                var key = new MDB_val(values);
-                var value = new MDB_val(values);
-                MDB_val value2 = default;
+                var key = new DirectBuffer(values);
+                var value = new DirectBuffer(values);
+                DirectBuffer value2 = default;
 
                 var count = 1_00_000_000;
 
@@ -286,9 +287,9 @@ namespace Spreads.LMDB.Tests
                 {
                     await env.WriteAsync(txn =>
                     {
-                        var key = new MDB_val(values);
-                        var value = new MDB_val(values);
-                        MDB_val value2 = default;
+                        var key = new DirectBuffer(values);
+                        var value = new DirectBuffer(values);
+                        DirectBuffer value2 = default;
 
                         using (var cursor = db.OpenCursor(txn))
                         {
@@ -305,9 +306,9 @@ namespace Spreads.LMDB.Tests
 
             env.Read(txn =>
             {
-                var key = new MDB_val(values);
-                var value = new MDB_val(values);
-                MDB_val value2 = default;
+                var key = new DirectBuffer(values);
+                var value = new DirectBuffer(values);
+                DirectBuffer value2 = default;
 
                 using (var cursor = db.OpenReadOnlyCursor(txn))
                 {
@@ -342,9 +343,9 @@ namespace Spreads.LMDB.Tests
                 {
                     env.Write(txn =>
                     {
-                        var key = new MDB_val(values);
-                        var value = new MDB_val(values);
-                        MDB_val value2 = default;
+                        var key = new DirectBuffer(values);
+                        var value = new DirectBuffer(values);
+                        DirectBuffer value2 = default;
 
                         using (var cursor = db.OpenCursor(txn))
                         {
@@ -360,9 +361,9 @@ namespace Spreads.LMDB.Tests
 
             env.Read(txn =>
             {
-                var key = new MDB_val(values);
-                var value = new MDB_val(values);
-                MDB_val value2 = default;
+                var key = new DirectBuffer(values);
+                var value = new DirectBuffer(values);
+                DirectBuffer value2 = default;
 
                 using (var cursor = db.OpenReadOnlyCursor(txn))
                 {

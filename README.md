@@ -17,78 +17,14 @@ Spreads.LMDB automatically takes care or read-only transactions and cursors rene
 if they are properly disposed as .NET objects. It does not allocate those 
 objects in steady state (uses internal pools).
 
-**Warning!** This library exposes `MDB_val` directly, the struct *MUST ONLY* be read when inside a transaction
+**Warning!** This library exposes `MDB_val` directly as `DirectBuffer` struct, the struct *MUST ONLY* be read when inside a transaction
 (or when it points to an overflow page - but that is a undocumented hack working so far). For writes, 
 the memory behind Span *MUST BE pinned*.
 
-MDB_val is defined as `ref struct`:
-
-```
-public readonly unsafe ref struct MDB_val
-{
-    public readonly size_t mv_size;
-    public readonly void* mv_data;
-
-    public MDB_val(Span<byte> span)
-    {
-        mv_size = (size_t)span.Length;
-        mv_data = Unsafe.AsPointer(ref MemoryMarshal.GetReference(span));
-    }
-
-    public ReadOnlySpan<byte> Span
-    {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get { return new ReadOnlySpan<byte>(mv_data, checked((int)mv_size)); }
-    }
-}
-```
-
-`ref struct` is similar to `Span<>` and could only live on the stack. It cannot be used 
-in async code, lambdas and is optimal for LMDB to minimize the risk of exiting transaction scope.
-
-It uses [`Span<T>`](https://msdn.microsoft.com/en-us/magazine/mt814808.aspx) from `System.Memory` so it is very fast and does not need any copying/marshalling
-to bytes. Only discipline with the transaction scope (read the *warning* above once again!) is required.
-
-
+~~
 # Example
 
-There are a couple of tests, e.g.:
-
-```
-[Test]
-public async Task CouldWriteAndRead()
-{
-    Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
-    Console.WriteLine(LMDBVersionInfo.Version);
-    var env = new Environment("./Data");
-    env.Open();
-    var stat = env.GetStat();
-
-    var db = await env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
-    
-    // Note: Txn is only available from this method (there is alos Read(_))
-    await env.WriteAsync(txn =>
-    {
-        var cursor = db.OpenWriteCursor(txn);
-        var values = new byte[] { 1, 2, 3, 4 };
-        
-        // Note: as a `ref struct` MDB_val will not allow this lambda to be async
-        // or to escape the scope of txn.
-        var key = new MDB_val(values);
-        var value = new MDB_val(values);
-        MDB_val value2 = default;
-
-        Assert.IsTrue(cursor.TryPut(ref key, ref value, CursorPutOptions.NoOverwrite));
-
-        Assert.IsTrue(cursor.TryGet(CursorGetOption.SetKey, ref key, ref value2));
-
-        Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
-
-        return Task.CompletedTask;
-    });
-    await env.Close();
-}
-```
+There are a couple of tests that show how to use the code.
 
 # Limitations & status
 

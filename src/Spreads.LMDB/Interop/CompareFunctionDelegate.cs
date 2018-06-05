@@ -3,9 +3,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 using System.Runtime.InteropServices;
+using Spreads.Buffers;
 
 namespace Spreads.LMDB.Interop
 {
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate int CompareFunction(ref MDB_val left, ref MDB_val right);
+    public delegate int CompareFunction(ref DirectBuffer left, ref DirectBuffer right);
 }

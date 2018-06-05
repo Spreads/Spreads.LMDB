@@ -2,17 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-
-using System;
 using Spreads.Utils.Bootstrap;
 
-namespace Spreads.LMDB {
-	/// <summary>
-	/// Basic setup for the library.
-	/// </summary>
-	public static class Config
+namespace Spreads.LMDB
+{
+    /// <summary>
+    /// Basic setup for the library.
+    /// </summary>
+    public static class Config
     {
-
         /// <summary>
         /// Basic environment configuration
         /// </summary>
@@ -33,7 +31,8 @@ namespace Spreads.LMDB {
             /// </summary>
             public const int LibDefaultMaxDatabases = 1024;
 
-            static DbEnvironment() {
+            static DbEnvironment()
+            {
                 DefaultLocation = System.IO.Path.Combine(Bootstrapper.Instance.DataFolder, "LMDB");
                 DefaultMapSize = LibDefaultMapSize;
                 DefaultMaxReaders = LibDefaultMaxReaders;

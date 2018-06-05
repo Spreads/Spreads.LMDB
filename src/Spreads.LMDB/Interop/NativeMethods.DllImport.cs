@@ -6,6 +6,7 @@ using Spreads.Utils.Bootstrap;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Spreads.Buffers;
 
 // ReSharper disable UnusedMember.Global
 
@@ -144,16 +145,16 @@ namespace Spreads.LMDB.Interop
         public static extern int mdb_env_sync(EnvironmentHandle env, bool force);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_get(IntPtr txn, uint dbi, ref MDB_val key, out MDB_val data);
+        public static extern int mdb_get(IntPtr txn, uint dbi, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_put(IntPtr txn, uint dbi, ref MDB_val key, ref MDB_val data, TransactionPutOptions flags);
+        public static extern int mdb_put(IntPtr txn, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_del(IntPtr txn, uint dbi, ref MDB_val key, ref MDB_val data);
+        public static extern int mdb_del(IntPtr txn, uint dbi, ref DirectBuffer key, ref DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_del(IntPtr txn, uint dbi, ref MDB_val key, IntPtr data);
+        public static extern int mdb_del(IntPtr txn, uint dbi, ref DirectBuffer key, IntPtr data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_open(IntPtr txn, uint dbi, out IntPtr cursor);
@@ -165,13 +166,13 @@ namespace Spreads.LMDB.Interop
         public static extern int mdb_cursor_renew(IntPtr txn, IntPtr cursor);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_cursor_get(IntPtr cursor, ref MDB_val key, ref MDB_val data, CursorGetOption op);
+        public static extern int mdb_cursor_get(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data, CursorGetOption op);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_cursor_put(IntPtr cursor, ref MDB_val key, ref MDB_val data, CursorPutOptions flags);
+        public static extern int mdb_cursor_put(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data, CursorPutOptions flags);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_cursor_put(IntPtr cursor, ref MDB_val key, MDB_val2[] data, CursorPutOptions flags);
+        public static extern int mdb_cursor_put(IntPtr cursor, ref DirectBuffer key, DirectBuffer[] data, CursorPutOptions flags);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_del(IntPtr cursor, CursorDeleteOption flags);
@@ -188,40 +189,40 @@ namespace Spreads.LMDB.Interop
         // Spreads extensoins to LMDB
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_lt(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_lt(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_le(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_le(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_eq(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_eq(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_ge(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_ge(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_gt(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_gt(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_lt_dup(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_lt_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_le_dup(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_le_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_eq_dup(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_eq_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_ge_dup(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_ge_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_gt_dup(IntPtr cursor, ref MDB_val key, out MDB_val data);
+        public static extern int sdb_cursor_get_gt_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_set_dupsort_as_sint64(IntPtr txn, uint dbi);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_put(IntPtr env, uint dbi, ref MDB_val key, ref MDB_val data, TransactionPutOptions flags);
+        public static extern int sdb_put(IntPtr env, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);
 
     }
 

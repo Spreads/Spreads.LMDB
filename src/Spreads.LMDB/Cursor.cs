@@ -7,6 +7,7 @@ using Spreads.LMDB.Interop;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Spreads.Buffers;
 
 namespace Spreads.LMDB
 {
@@ -26,19 +27,19 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value)
+        public bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             return _impl.TryFind(direction, ref key, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value)
+        public bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             return _impl.TryFindDup(direction, ref key, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(CursorGetOption operation, ref MDB_val key, ref MDB_val value)
+        public bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
         {
             return _impl.TryGet(operation, ref key, ref value);
         }
@@ -50,37 +51,37 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryPut(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
+        public bool TryPut(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             return _impl.TryPut(ref key, ref value, options);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Put(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
+        public void Put(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             _impl.Put(ref key, ref value, options);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(ref MDB_val key, ref MDB_val value)
+        public void Add(ref DirectBuffer key, ref DirectBuffer value)
         {
             _impl.Add(ref key, ref value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Replace(ref MDB_val key, ref MDB_val value)
+        public void Replace(ref DirectBuffer key, ref DirectBuffer value)
         {
             _impl.Replace(ref key, ref value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Append(ref MDB_val key, ref MDB_val value, bool dup = false)
+        public void Append(ref DirectBuffer key, ref DirectBuffer value, bool dup = false)
         {
             _impl.Append(ref key, ref value, dup);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Reserve(ref MDB_val key, ref MDB_val value)
+        public void Reserve(ref DirectBuffer key, ref DirectBuffer value)
         {
             _impl.Reserve(ref key, ref value);
         }
@@ -112,19 +113,19 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value)
+        public bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             return _impl.TryFind(direction, ref key, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value)
+        public bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             return _impl.TryFindDup(direction, ref key, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(CursorGetOption operation, ref MDB_val key, ref MDB_val value)
+        public bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
         {
             return _impl.TryGet(operation, ref key, ref value);
         }
@@ -138,17 +139,17 @@ namespace Spreads.LMDB
 
     public interface ICursor : IReadOnlyCursor
     {
-        bool TryPut(ref MDB_val key, ref MDB_val value, CursorPutOptions options);
+        bool TryPut(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options);
 
-        void Put(ref MDB_val key, ref MDB_val value, CursorPutOptions options);
+        void Put(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options);
 
-        void Add(ref MDB_val key, ref MDB_val value);
+        void Add(ref DirectBuffer key, ref DirectBuffer value);
 
-        void Replace(ref MDB_val key, ref MDB_val value);
+        void Replace(ref DirectBuffer key, ref DirectBuffer value);
 
-        void Append(ref MDB_val key, ref MDB_val value, bool dup = false);
+        void Append(ref DirectBuffer key, ref DirectBuffer value, bool dup = false);
 
-        void Reserve(ref MDB_val key, ref MDB_val value);
+        void Reserve(ref DirectBuffer key, ref DirectBuffer value);
 
         /// <summary>
         /// Delete current key/data pair.
@@ -160,11 +161,11 @@ namespace Spreads.LMDB
 
     public interface IReadOnlyCursor : IDisposable
     {
-        bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value);
+        bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value);
 
-        bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value);
+        bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value);
 
-        bool TryGet(CursorGetOption operation, ref MDB_val key, ref MDB_val value);
+        bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value);
 
         /// <summary>
         /// Return count of duplicates for current key.
@@ -302,7 +303,7 @@ namespace Spreads.LMDB
         #region sdb_cursor_find
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFind(Lookup direction, ref MDB_val key, out MDB_val value)
+        public bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             int res = 0;
             value = default;
@@ -354,10 +355,10 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup(Lookup direction, ref MDB_val key, out MDB_val value)
+        public bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             int res = 0;
-            value = default(MDB_val);
+            value = default(DirectBuffer);
 
             switch (direction)
             {
@@ -411,7 +412,7 @@ namespace Spreads.LMDB
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet(
-            CursorGetOption operation, ref MDB_val key, ref MDB_val value)
+            CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
         {
             var res = IsReadOnly
                 ? NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle.Handle, ref key, ref value, operation))
@@ -439,7 +440,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryPut(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
+        public bool TryPut(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             EnsureWriteable();
             var res = NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, options);
@@ -447,28 +448,28 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Put(ref MDB_val key, ref MDB_val value, CursorPutOptions options)
+        public void Put(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, options));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(ref MDB_val key, ref MDB_val value)
+        public void Add(ref DirectBuffer key, ref DirectBuffer value)
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, CursorPutOptions.NoOverwrite));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Replace(ref MDB_val key, ref MDB_val value)
+        public void Replace(ref DirectBuffer key, ref DirectBuffer value)
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, CursorPutOptions.Current));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Append(ref MDB_val key, ref MDB_val value, bool dup = false)
+        public void Append(ref DirectBuffer key, ref DirectBuffer value, bool dup = false)
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(
@@ -477,7 +478,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Reserve(ref MDB_val key, ref MDB_val value)
+        public void Reserve(ref DirectBuffer key, ref DirectBuffer value)
         {
             EnsureWriteable();
             if (Database.OpenFlags.HasFlag(DbFlags.DuplicatesSort)) throw new NotSupportedException("Reserve is not supported for DupSort");
