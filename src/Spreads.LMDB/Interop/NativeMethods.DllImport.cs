@@ -20,7 +20,7 @@ namespace Spreads.LMDB.Interop
         static NativeMethods()
         {
             // Ensure Bootstrapper is initialized and native libraries are loaded
-            Bootstrapper.Instance.Bootstrap<Environment>(
+            Bootstrapper.Instance.Bootstrap<LMDBEnvironment>(
                 DbLibraryName,
                 null,
                 () => { Debug.WriteLine("Native pre-copy"); },

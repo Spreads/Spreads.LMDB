@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+using Spreads.Buffers;
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using Spreads.Serialization;
@@ -9,7 +10,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using Spreads.Buffers;
 using static System.Runtime.CompilerServices.Unsafe;
 
 namespace Spreads.LMDB
@@ -24,7 +24,7 @@ namespace Spreads.LMDB
 
         internal uint _handle;
         private readonly DatabaseConfig _config;
-        private readonly Environment _environment;
+        private readonly LMDBEnvironment _lmdbEnvironment;
         private readonly string _name;
 
         internal Database(string name, TransactionImpl txn, DatabaseConfig config)
@@ -33,7 +33,7 @@ namespace Spreads.LMDB
             if (txn == null) { throw new ArgumentNullException(nameof(txn)); }
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _name = name;
-            _environment = txn.Environment;
+            _lmdbEnvironment = txn.LmdbEnvironment;
 
             NativeMethods.AssertExecute(NativeMethods.mdb_dbi_open(txn._writeHandle, name, _config.OpenFlags, out var handle));
             if (_config.CompareFunction != null)
@@ -63,7 +63,7 @@ namespace Spreads.LMDB
         /// <summary>
         /// Environment in which the database was opened.
         /// </summary>
-        public Environment Environment => _environment;
+        public LMDBEnvironment LmdbEnvironment => _lmdbEnvironment;
 
         /// <summary>
         /// Flags with which the database was opened.
@@ -89,7 +89,7 @@ namespace Spreads.LMDB
         /// </summary>
         public Task Drop()
         {
-            return Environment.WriteAsync(txn =>
+            return LmdbEnvironment.WriteAsync(txn =>
             {
                 NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, true));
                 _handle = default;
@@ -112,7 +112,7 @@ namespace Spreads.LMDB
         /// </summary>
         public Task Truncate()
         {
-            return Environment.WriteAsync(txn =>
+            return LmdbEnvironment.WriteAsync(txn =>
             {
                 NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
                 _handle = default;
@@ -132,7 +132,7 @@ namespace Spreads.LMDB
 
         public MDB_stat GetStat()
         {
-            using (var tx = TransactionImpl.Create(Environment, TransactionBeginFlags.ReadOnly))
+            using (var tx = TransactionImpl.Create(LmdbEnvironment, TransactionBeginFlags.ReadOnly))
             {
                 NativeMethods.AssertRead(NativeMethods.mdb_stat(tx._readHandle.Handle, _handle, out var stat));
                 return stat;
@@ -187,8 +187,8 @@ namespace Spreads.LMDB
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
-            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.Size, (byte*)valuePtr);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
                 ref key1, ref value1,
                 flags));
@@ -200,12 +200,12 @@ namespace Spreads.LMDB
         {
             var key2 = key;
             var value2 = value;
-            Environment.Write(txn =>
+            LmdbEnvironment.Write(txn =>
             {
                 var k = key2;
                 var v = value2;
 
-                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                     ref k, ref v,
                     flags));
                 key2 = k;
@@ -221,7 +221,7 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
-            Environment.Write(txn =>
+            LmdbEnvironment.Write(txn =>
             {
                 var keyBytesSpan = MemoryMarshal.Cast<TKey, byte>(key.Span);
                 var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
@@ -229,12 +229,12 @@ namespace Spreads.LMDB
                 {
                     var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
                     var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
-                    NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                    NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                         ref key1, ref value1,
                         flags));
                 }
                 return null;
-            }, true);
+            }, false, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -242,18 +242,18 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
-            Environment.Write(txn =>
+            LmdbEnvironment.Write(txn =>
             {
                 var keyPtr = AsPointer(ref key);
                 var valuePtr = AsPointer(ref value);
-                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
-                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.Size, (byte*)valuePtr);
-                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+                NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                     ref key1, ref value1,
                     flags));
 
                 return null;
-            }, true);
+            }, false, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -261,7 +261,7 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
-            return Environment.WriteAsync(txn =>
+            return LmdbEnvironment.WriteAsync(txn =>
             {
                 var keyBytesSpan = MemoryMarshal.Cast<TKey, byte>(key.Span);
                 var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
@@ -269,7 +269,7 @@ namespace Spreads.LMDB
                 {
                     var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
                     var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
-                    NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                    NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                         ref key1, ref value1,
                         flags));
                 }
@@ -282,18 +282,52 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
-            return Environment.WriteAsync(txn =>
+            return LmdbEnvironment.WriteAsync(txn =>
             {
                 var keyPtr = AsPointer(ref key);
                 var valuePtr = AsPointer(ref value);
-                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
-                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.Size, (byte*)valuePtr);
-                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+                NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                     ref key1, ref value1,
                     flags));
 
                 return null;
             }, true);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Delete(Transaction txn, ref DirectBuffer key, ref DirectBuffer value)
+        {
+            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
+                ref key, ref value));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Delete<TKey, TValue>(Transaction txn, ReadOnlyMemory<TKey> key, ReadOnlyMemory<TValue> value)
+            where TKey : struct where TValue : struct
+        {
+            var keyBytesSpan = MemoryMarshal.Cast<TKey, byte>(key.Span);
+            var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
+            fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
+            {
+                var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
+                var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
+                NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
+                    ref key1, ref value1));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Delete<TKey, TValue>(Transaction txn, TKey key, TValue value)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var valuePtr = AsPointer(ref value);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
+                ref key1, ref value1));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -308,7 +342,8 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            TypeHelper<TValue>.EnsureFixedSize();
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle,
                 ref key1, out DirectBuffer value1));
             if (res != NativeMethods.MDB_NOTFOUND)
@@ -334,7 +369,8 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.Size, (byte*)keyPtr);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            TypeHelper<TValue>.EnsureFixedSize();
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle,
                 ref key1, out DirectBuffer value1));
             if (res != NativeMethods.MDB_NOTFOUND)
@@ -353,7 +389,7 @@ namespace Spreads.LMDB
             {
                 return;
             }
-            NativeMethods.mdb_dbi_close(Environment._handle, _handle);
+            NativeMethods.mdb_dbi_close(LmdbEnvironment._handle, _handle);
             _handle = default;
         }
 

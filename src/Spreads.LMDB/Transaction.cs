@@ -60,7 +60,7 @@ namespace Spreads.LMDB
 
     internal class TransactionImpl : IDisposable
     {
-        private Environment _environment;
+        private LMDBEnvironment _lmdbEnvironment;
 
         // on dispose must close write and reset read
 
@@ -84,9 +84,9 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static TransactionImpl Create(Environment environment, TransactionBeginFlags beginFlags)
+        internal static TransactionImpl Create(LMDBEnvironment lmdbEnvironment, TransactionBeginFlags beginFlags)
         {
-            environment.EnsureOpened();
+            lmdbEnvironment.EnsureOpened();
 
             var tx = TxPool.Allocate();
 
@@ -95,7 +95,7 @@ namespace Spreads.LMDB
                 ThrowShoudBeDisposed();
             }
 
-            tx._environment = environment;
+            tx._lmdbEnvironment = lmdbEnvironment;
             // ReSharper disable once BitwiseOperatorOnEnumWithoutFlags
             var isReadOnly = (beginFlags & TransactionBeginFlags.ReadOnly) == TransactionBeginFlags.ReadOnly;
             if (isReadOnly)
@@ -105,7 +105,7 @@ namespace Spreads.LMDB
                 {
                     // create new
                     NativeMethods.AssertExecute(
-                        NativeMethods.mdb_txn_begin(environment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
+                        NativeMethods.mdb_txn_begin(lmdbEnvironment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
                     rh.SetNewHandle(handle);
                 }
                 else
@@ -118,7 +118,7 @@ namespace Spreads.LMDB
             else
             {
                 NativeMethods.AssertExecute(
-                    NativeMethods.mdb_txn_begin(environment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
+                    NativeMethods.mdb_txn_begin(lmdbEnvironment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
                 tx._writeHandle = handle;
             }
             tx._state = TransactionState.Active;
@@ -154,7 +154,7 @@ namespace Spreads.LMDB
                 {
                     if (_state == TransactionState.Active)
                     {
-                        if (Environment.AutoCommit)
+                        if (LmdbEnvironment.AutoCommit)
                         {
                             NativeMethods.mdb_txn_commit(_writeHandle);
                         }
@@ -180,7 +180,7 @@ namespace Spreads.LMDB
                 _writeHandle = IntPtr.Zero;
             }
 
-            _environment = null;
+            _lmdbEnvironment = null;
             _state = TransactionState.Disposed;
             if (disposing)
             {
@@ -223,7 +223,7 @@ namespace Spreads.LMDB
         /// <summary>
         /// Environment in which the transaction was opened.
         /// </summary>
-        public Environment Environment => _environment;
+        public LMDBEnvironment LmdbEnvironment => _lmdbEnvironment;
 
         /// <summary>
         /// Transaction is read-only.

@@ -15,7 +15,7 @@ namespace Spreads.LMDB
     /// <summary>
     /// LMDB Environment.
     /// </summary>
-    public class Environment : IDisposable
+    public class LMDBEnvironment : IDisposable
     {
         private readonly UnixAccessMode _accessMode;
         private readonly DbEnvironmentFlags _openFlags;
@@ -38,7 +38,7 @@ namespace Spreads.LMDB
         /// <param name="directory">Relative directory for storing database files.</param>
         /// <param name="openFlags">Database open options.</param>
         /// <param name="accessMode">Unix file access privelegies (optional). Only makes sense on unix operationg systems.</param>
-        public Environment(string directory = null,
+        public LMDBEnvironment(string directory = null,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default)
         {
@@ -535,7 +535,7 @@ namespace Spreads.LMDB
             Dispose(true);
         }
 
-        ~Environment()
+        ~LMDBEnvironment()
         {
             Dispose(false);
         }
