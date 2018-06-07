@@ -2,12 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+using Spreads.Buffers;
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
+using Spreads.Serialization;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Spreads.Buffers;
+using static System.Runtime.CompilerServices.Unsafe;
 
 namespace Spreads.LMDB
 {
@@ -26,16 +28,31 @@ namespace Spreads.LMDB
             _impl.Dispose();
         }
 
+        public bool TryFind<TKey, TValue>(Lookup direction, ref TKey key, out TValue value) where TKey : struct where TValue : struct
+        {
+            return _impl.TryFind(direction, ref key, out value);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             return _impl.TryFind(direction, ref key, out value);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
+        public bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
         {
-            return _impl.TryFindDup(direction, ref key, out value);
+            return _impl.TryFindDup(direction, ref key, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFindDup(Lookup direction, ref DirectBuffer key, ref DirectBuffer value)
+        {
+            return _impl.TryFindDup(direction, ref key, ref value);
+        }
+
+        public bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
+        {
+            return _impl.TryGet(operation, ref key, ref value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -45,9 +62,9 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ulong Count(CursorDeleteOption option)
+        public ulong Count()
         {
-            return _impl.Count(option);
+            return _impl.Count();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -112,16 +129,31 @@ namespace Spreads.LMDB
             _impl.Dispose();
         }
 
+        public bool TryFind<TKey, TValue>(Lookup direction, ref TKey key, out TValue value) where TKey : struct where TValue : struct
+        {
+            return _impl.TryFind(direction, ref key, out value);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             return _impl.TryFind(direction, ref key, out value);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
+        public bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
         {
-            return _impl.TryFindDup(direction, ref key, out value);
+            return _impl.TryFindDup(direction, ref key, ref value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFindDup(Lookup direction, ref DirectBuffer key, ref DirectBuffer value)
+        {
+            return _impl.TryFindDup(direction, ref key, ref value);
+        }
+
+        public bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
+        {
+            return _impl.TryGet(operation, ref key, ref value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -131,9 +163,9 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ulong Count(CursorDeleteOption option)
+        public ulong Count()
         {
-            return _impl.Count(option);
+            return _impl.Count();
         }
     }
 
@@ -161,9 +193,18 @@ namespace Spreads.LMDB
 
     public interface IReadOnlyCursor : IDisposable
     {
+        bool TryFind<TKey, TValue>(Lookup direction, ref TKey key, out TValue value)
+            where TKey : struct where TValue : struct;
+
         bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value);
 
-        bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value);
+        bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value)
+            where TKey : struct where TValue : struct;
+
+        bool TryFindDup(Lookup direction, ref DirectBuffer key, ref DirectBuffer value);
+
+        bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value)
+            where TKey : struct where TValue : struct;
 
         bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value);
 
@@ -171,7 +212,7 @@ namespace Spreads.LMDB
         /// Return count of duplicates for current key.
         /// This call is only valid on databases that support sorted duplicate data items MDB_DUPSORT.
         /// </summary>
-        ulong Count(CursorDeleteOption option);
+        ulong Count();
     }
 
     /// <summary>
@@ -192,7 +233,7 @@ namespace Spreads.LMDB
         #region Lifecycle
 
         private static readonly ObjectPool<CursorImpl> CursorPool =
-            new ObjectPool<CursorImpl>(() => new CursorImpl(), System.Environment.ProcessorCount * 16);
+            new ObjectPool<CursorImpl>(() => new CursorImpl(), Environment.ProcessorCount * 16);
 
         private CursorImpl()
         { }
@@ -303,6 +344,24 @@ namespace Spreads.LMDB
         #region sdb_cursor_find
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryFind<TKey, TValue>(Lookup direction, ref TKey key, out TValue value)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            TypeHelper<TValue>.EnsureFixedSize();
+            var res = TryFind(direction, ref key1, out DirectBuffer value1);
+            if (res)
+            {
+                key = ReadUnaligned<TKey>((byte*)key1.Data);
+                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                return true;
+            }
+            value = default;
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryFind(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
         {
             int res = 0;
@@ -355,50 +414,69 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup(Lookup direction, ref DirectBuffer key, out DirectBuffer value)
+        public unsafe bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+
+            var valuePtr = AsPointer(ref value);
+            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+
+            var res = TryFindDup(direction, ref key1, ref value1);
+            if (res)
+            {
+                key = ReadUnaligned<TKey>((byte*)key1.Data);
+                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                return true;
+            }
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFindDup(Lookup direction, ref DirectBuffer key, ref DirectBuffer value)
         {
             int res = 0;
-            value = default(DirectBuffer);
 
             switch (direction)
             {
                 case Lookup.LT:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_lt_dup(_writeHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle.Handle, ref key, ref value)
+                            : NativeMethods.sdb_cursor_get_lt_dup(_writeHandle, ref key, ref value)
                         );
                     break;
 
                 case Lookup.LE:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_le_dup(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_le_dup(_writeHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_le_dup(_readHandle.Handle, ref key, ref value)
+                            : NativeMethods.sdb_cursor_get_le_dup(_writeHandle, ref key, ref value)
                         );
                     break;
 
                 case Lookup.EQ:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_eq_dup(_writeHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle.Handle, ref key, ref value)
+                            : NativeMethods.sdb_cursor_get_eq_dup(_writeHandle, ref key, ref value)
                     );
                     break;
 
                 case Lookup.GE:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_ge_dup(_writeHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle.Handle, ref key, ref value)
+                            : NativeMethods.sdb_cursor_get_ge_dup(_writeHandle, ref key, ref value)
                     );
                     break;
 
                 case Lookup.GT:
                     res = NativeMethods.AssertRead(
                         IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_gt_dup(_writeHandle, ref key, out value)
+                            ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle.Handle, ref key, ref value)
+                            : NativeMethods.sdb_cursor_get_gt_dup(_writeHandle, ref key, ref value)
                     );
                     break;
             }
@@ -411,8 +489,19 @@ namespace Spreads.LMDB
         #region mdb_cursor_get
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(
-            CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
+        public unsafe bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var valuePtr = AsPointer(ref value);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            TypeHelper<TValue>.EnsureFixedSize();
+            return TryGet(operation, ref key1, ref value1);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
         {
             var res = IsReadOnly
                 ? NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle.Handle, ref key, ref value, operation))
@@ -520,7 +609,7 @@ namespace Spreads.LMDB
         /// This call is only valid on databases that support sorted duplicate data items MDB_DUPSORT.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ulong Count(CursorDeleteOption option)
+        public ulong Count()
         {
             NativeMethods.AssertRead(NativeMethods.mdb_cursor_count(_readHandle.Handle, out var result));
             return (ulong)result;

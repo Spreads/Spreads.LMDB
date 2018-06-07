@@ -13,6 +13,7 @@ namespace Spreads.LMDB
 		public DbFlags OpenFlags { get; }
 		public CompareFunction CompareFunction { get; }
 	    public CompareFunction DupSortFunction { get; }
+        public int DupSortPrefix { get; set; } = -1;
 
 	    public DatabaseConfig(DbFlags flags,
             CompareFunction compareFunc = null, 
@@ -23,6 +24,5 @@ namespace Spreads.LMDB
             DupSortFunction = dupSortFunc;
         }
 
-        
     }
 }

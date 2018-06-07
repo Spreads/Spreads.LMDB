@@ -44,6 +44,37 @@ namespace Spreads.LMDB
             {
                 NativeMethods.AssertExecute(NativeMethods.mdb_set_dupsort(txn._writeHandle, handle, _config.DupSortFunction));
             }
+            if (_config.DupSortPrefix > 0)
+            {
+                if (_config.DupSortPrefix == 96)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint96(txn._writeHandle, handle));
+                }
+                else if (_config.DupSortPrefix == 80)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint80(txn._writeHandle, handle));
+                }
+                else if (_config.DupSortPrefix == 64)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint64(txn._writeHandle, handle));
+                }
+                else if (_config.DupSortPrefix == 48)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint48(txn._writeHandle, handle));
+                }
+                else if (_config.DupSortPrefix == 32)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint32(txn._writeHandle, handle));
+                }
+                else if (_config.DupSortPrefix == 16)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint16(txn._writeHandle, handle));
+                }
+                else
+                {
+                    throw new NotSupportedException("Rethink your design if you need this!");
+                }
+            }
 
             _handle = handle;
         }

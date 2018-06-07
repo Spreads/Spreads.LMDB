@@ -204,22 +204,37 @@ namespace Spreads.LMDB.Interop
         public static extern int sdb_cursor_get_gt(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_lt_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
+        public static extern int sdb_cursor_get_lt_dup(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_le_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
+        public static extern int sdb_cursor_get_le_dup(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_eq_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
+        public static extern int sdb_cursor_get_eq_dup(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_ge_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
+        public static extern int sdb_cursor_get_ge_dup(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_cursor_get_gt_dup(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
+        public static extern int sdb_cursor_get_gt_dup(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int sdb_set_dupsort_as_sint64(IntPtr txn, uint dbi);
+        public static extern int sdb_set_dupsort_as_uint96(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_set_dupsort_as_uint80(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_set_dupsort_as_uint64(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_set_dupsort_as_uint48(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_set_dupsort_as_uint32(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_set_dupsort_as_uint16(IntPtr txn, uint dbi);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_put(IntPtr env, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);
