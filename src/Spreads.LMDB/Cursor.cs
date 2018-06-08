@@ -496,8 +496,15 @@ namespace Spreads.LMDB
             var valuePtr = AsPointer(ref value);
             var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
-            TypeHelper<TValue>.EnsureFixedSize();
-            return TryGet(operation, ref key1, ref value1);
+            if(TryGet(operation, ref key1, ref value1))
+            {
+                key = ReadUnaligned<TKey>((byte*)key1.Data);
+                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                return true;
+            }
+
+            value = default;
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
