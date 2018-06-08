@@ -123,6 +123,7 @@ namespace Spreads.LMDB
             return LmdbEnvironment.WriteAsync(txn =>
             {
                 NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, true));
+                txn.Commit();
                 _handle = default;
                 return null;
             });
@@ -146,7 +147,7 @@ namespace Spreads.LMDB
             return LmdbEnvironment.WriteAsync(txn =>
             {
                 NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
-                _handle = default;
+                txn.Commit();
                 return null;
             });
         }
@@ -157,7 +158,6 @@ namespace Spreads.LMDB
         public bool Truncate(Transaction transaction)
         {
             var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(transaction._impl._writeHandle, _handle, false));
-            _handle = default;
             return res == 0;
         }
 
