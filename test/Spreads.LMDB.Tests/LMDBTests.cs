@@ -67,7 +67,7 @@ namespace Spreads.LMDB.Tests
 
                 using (var cursor = db.OpenCursor(txn))
                 {
-                    Assert.IsTrue(cursor.TryGet(CursorGetOption.SetKey, ref key, ref value2));
+                    Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
                 }
 
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
@@ -194,7 +194,7 @@ namespace Spreads.LMDB.Tests
 
                 using (var cursor = db.OpenCursor(txn))
                 {
-                    Assert.IsTrue(cursor.TryGet(CursorGetOption.SetKey, ref key, ref value2));
+                    Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
                 }
 
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
@@ -252,7 +252,7 @@ namespace Spreads.LMDB.Tests
                     {
                         for (int i = 0; i < count; i++)
                         {
-                            cursor.TryGet(CursorGetOption.SetKey, ref key, ref value2);
+                            cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey);
                         }
                     }
                 }
@@ -312,7 +312,7 @@ namespace Spreads.LMDB.Tests
 
                 using (var cursor = db.OpenReadOnlyCursor(txn))
                 {
-                    Assert.IsTrue(cursor.TryGet(CursorGetOption.SetKey, ref key, ref value2));
+                    Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
                 }
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
 
@@ -367,7 +367,7 @@ namespace Spreads.LMDB.Tests
 
                 using (var cursor = db.OpenReadOnlyCursor(txn))
                 {
-                    Assert.IsTrue(cursor.TryGet(CursorGetOption.SetKey, ref key, ref value2));
+                    Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
                 }
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
 

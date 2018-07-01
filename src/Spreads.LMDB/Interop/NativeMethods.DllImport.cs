@@ -2,11 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-using Spreads.Utils.Bootstrap;
+using Spreads.Buffers;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Spreads.Buffers;
+using Spreads.Utils.Bootstrap;
 
 // ReSharper disable UnusedMember.Global
 
@@ -24,7 +24,12 @@ namespace Spreads.LMDB.Interop
                 DbLibraryName,
                 null,
                 () => { Debug.WriteLine("Native pre-copy"); },
-                (lib) => { Debug.WriteLine("Native post-copy"); },
+                (lib) =>
+                {
+                    //Environment.FailFast(lib.Path);
+
+                    Debug.WriteLine("Native post-copy");
+                },
                 () => { Debug.WriteLine("Native dispose"); });
         }
 
@@ -238,7 +243,6 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_put(IntPtr env, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);
-
     }
 
 #pragma warning restore IDE1006 // Naming Styles

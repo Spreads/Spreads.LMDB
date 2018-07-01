@@ -28,6 +28,7 @@ namespace Spreads.LMDB
             _impl.Dispose();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryFind<TKey, TValue>(Lookup direction, ref TKey key, out TValue value) where TKey : struct where TValue : struct
         {
             return _impl.TryFind(direction, ref key, out value);
@@ -39,6 +40,7 @@ namespace Spreads.LMDB
             return _impl.TryFind(direction, ref key, out value);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
         {
             return _impl.TryFindDup(direction, ref key, ref value);
@@ -50,15 +52,16 @@ namespace Spreads.LMDB
             return _impl.TryFindDup(direction, ref key, ref value);
         }
 
-        public bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet<TKey, TValue>(ref TKey key, ref TValue value, CursorGetOption operation) where TKey : struct where TValue : struct
         {
-            return _impl.TryGet(operation, ref key, ref value);
+            return _impl.TryGet(ref key, ref value, operation);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
+        public bool TryGet(ref DirectBuffer key, ref DirectBuffer value, CursorGetOption operation)
         {
-            return _impl.TryGet(operation, ref key, ref value);
+            return _impl.TryGet(ref key, ref value, operation);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -68,9 +71,21 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryPut<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options) where TKey : struct where TValue : struct
+        {
+            return _impl.TryPut(ref key, ref value, options);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryPut(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             return _impl.TryPut(ref key, ref value, options);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Put<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options) where TKey : struct where TValue : struct
+        {
+            _impl.Put(ref key, ref value, options);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -129,6 +144,7 @@ namespace Spreads.LMDB
             _impl.Dispose();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryFind<TKey, TValue>(Lookup direction, ref TKey key, out TValue value) where TKey : struct where TValue : struct
         {
             return _impl.TryFind(direction, ref key, out value);
@@ -140,6 +156,7 @@ namespace Spreads.LMDB
             return _impl.TryFind(direction, ref key, out value);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
         {
             return _impl.TryFindDup(direction, ref key, ref value);
@@ -151,15 +168,16 @@ namespace Spreads.LMDB
             return _impl.TryFindDup(direction, ref key, ref value);
         }
 
-        public bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value) where TKey : struct where TValue : struct
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGet<TKey, TValue>(ref TKey key, ref TValue value, CursorGetOption operation) where TKey : struct where TValue : struct
         {
-            return _impl.TryGet(operation, ref key, ref value);
+            return _impl.TryGet(ref key, ref value, operation);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
+        public bool TryGet(ref DirectBuffer key, ref DirectBuffer value, CursorGetOption operation)
         {
-            return _impl.TryGet(operation, ref key, ref value);
+            return _impl.TryGet(ref key, ref value, operation);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -171,7 +189,13 @@ namespace Spreads.LMDB
 
     public interface ICursor : IReadOnlyCursor
     {
+        bool TryPut<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options)
+            where TKey : struct where TValue : struct;
+
         bool TryPut(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options);
+
+        void Put<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options)
+            where TKey : struct where TValue : struct;
 
         void Put(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options);
 
@@ -203,10 +227,10 @@ namespace Spreads.LMDB
 
         bool TryFindDup(Lookup direction, ref DirectBuffer key, ref DirectBuffer value);
 
-        bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value)
+        bool TryGet<TKey, TValue>(ref TKey key, ref TValue value, CursorGetOption operation)
             where TKey : struct where TValue : struct;
 
-        bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value);
+        bool TryGet(ref DirectBuffer key, ref DirectBuffer value, CursorGetOption operation);
 
         /// <summary>
         /// Return count of duplicates for current key.
@@ -489,26 +513,24 @@ namespace Spreads.LMDB
         #region mdb_cursor_get
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryGet<TKey, TValue>(CursorGetOption operation, ref TKey key, ref TValue value)
+        public unsafe bool TryGet<TKey, TValue>(ref TKey key, ref TValue value, CursorGetOption operation)
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
             var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
-            if(TryGet(operation, ref key1, ref value1))
+            if (TryGet(ref key1, ref value1, operation))
             {
                 key = ReadUnaligned<TKey>((byte*)key1.Data);
                 value = ReadUnaligned<TValue>((byte*)value1.Data);
                 return true;
             }
-
-            value = default;
             return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(CursorGetOption operation, ref DirectBuffer key, ref DirectBuffer value)
+        public bool TryGet(ref DirectBuffer key, ref DirectBuffer value, CursorGetOption operation)
         {
             var res = IsReadOnly
                 ? NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle.Handle, ref key, ref value, operation))
@@ -536,11 +558,41 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryPut<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var valuePtr = AsPointer(ref value);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            if (TryPut(ref key1, ref value1, options))
+            {
+                key = ReadUnaligned<TKey>((byte*)key1.Data);
+                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                return true;
+            }
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryPut(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             EnsureWriteable();
             var res = NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, options);
             return res == 0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Put<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var valuePtr = AsPointer(ref value);
+            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            Put(ref key1, ref value1, options);
+            key = ReadUnaligned<TKey>((byte*)key1.Data);
+            value = ReadUnaligned<TValue>((byte*)value1.Data);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

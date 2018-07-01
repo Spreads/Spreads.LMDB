@@ -34,7 +34,6 @@ if a type is fixed-size is in [TypeHelper<T>](https://github.com/Spreads/Spreads
 and its `TypeHelper<T>.Size` static property must be positive.
 
 
-
 # Example
 
 There are a couple of tests that show how to use the code.
@@ -46,13 +45,9 @@ not raw P/Invoke. [`Span<T>` et al.](https://msdn.microsoft.com/en-us/magazine/m
 for this! On May 31st .NET Core 2.1 was finally released - and (by accident) the first version of this
 library. The perfect .NET release with the powerful memory access tools meet the perfect database!
 
-The library targets .NET Standard 2.0 and have native binaries for Linux, but currently works on Windows only.
-Cannot load Linux's native using old loader library tested long time ago outside Windows. (Linux will not be a priority 
-for a couple of weeks.)
-
 The project has required binaries in `lib` folder - they are native dlls compressed with 
 `deflate` and embedded into the package dll as resources (this often simplifies deployment). 
-Source code maybe added later if someone needs it. Should work with normal binaries as well
+Source code maybe added later if someone needs it. Should work with original native binaries as well
 if not using two `TryFind` helper methods.
 
 # Contributing
