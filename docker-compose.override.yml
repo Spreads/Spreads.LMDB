@@ -1,0 +1,5 @@
+version: '3.4'
+services:
+  spreads.lmdb.tests.run:
+    environment:
+      - LD_DEBUG=libs

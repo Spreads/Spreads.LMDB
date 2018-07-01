@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  spreads.lmdb.tests.run:
+    image: ${DOCKER_REGISTRY}spreadslmdbtestsrun
+    build:
+      context: .
+      dockerfile: test/Spreads.LMDB.Tests.Run/Dockerfile

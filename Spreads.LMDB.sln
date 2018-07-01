@@ -22,7 +22,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB", "src\Spreads
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB.Tests", "test\Spreads.LMDB.Tests\Spreads.LMDB.Tests.csproj", "{B66E4EDB-9FC8-495B-BEE6-972DB56B32FA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spreads.LMDB.Tests.Run", "test\Spreads.LMDB.Tests.Run\Spreads.LMDB.Tests.Run.csproj", "{8719CA4D-716C-49AF-8E40-04706403EEAE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB.Tests.Run", "test\Spreads.LMDB.Tests.Run\Spreads.LMDB.Tests.Run.csproj", "{8719CA4D-716C-49AF-8E40-04706403EEAE}"
+EndProject
+Project("{E53339B2-1760-4266-BCC7-CA923CBCF16C}") = "docker-compose", "docker-compose.dcproj", "{BF20F027-ED60-4D98-90C6-87EBCB29754C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -84,6 +86,22 @@ Global
 		{8719CA4D-716C-49AF-8E40-04706403EEAE}.Release|x64.Build.0 = Release|Any CPU
 		{8719CA4D-716C-49AF-8E40-04706403EEAE}.Release|x86.ActiveCfg = Release|Any CPU
 		{8719CA4D-716C-49AF-8E40-04706403EEAE}.Release|x86.Build.0 = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|ARM.Build.0 = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|x64.Build.0 = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Debug|x86.Build.0 = Debug|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|ARM.ActiveCfg = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|ARM.Build.0 = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|x64.ActiveCfg = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|x64.Build.0 = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|x86.ActiveCfg = Release|Any CPU
+		{BF20F027-ED60-4D98-90C6-87EBCB29754C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
