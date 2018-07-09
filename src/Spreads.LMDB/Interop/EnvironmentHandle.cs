@@ -23,7 +23,7 @@ namespace Spreads.LMDB.Interop
         }
 
         protected override bool ReleaseHandle() {
-            NativeMethods.mdb_env_sync(handle, true);
+            NativeMethods.mdb_env_sync(handle, false);
             NativeMethods.mdb_env_close(handle);
             return true;
         }

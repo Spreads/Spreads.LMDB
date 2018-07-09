@@ -159,7 +159,11 @@ namespace Spreads.LMDB
                 }
                 _writeTaskCompletion.SetResult(null);
             });
-            var writeThread = new Thread(threadStart) { Name = "LMDB Writer thread" };
+            var writeThread = new Thread(threadStart)
+            {
+                Name = "LMDB Writer thread",
+                Priority = ThreadPriority.AboveNormal
+            };
             writeThread.Start();
         }
 
@@ -322,6 +326,11 @@ namespace Spreads.LMDB
                 txn._impl.Commit();
                 return db;
             });
+        }
+
+        public void Sync(bool force)
+        {
+            NativeMethods.AssertExecute(NativeMethods.mdb_env_sync(_handle, force));
         }
 
         /// <summary>

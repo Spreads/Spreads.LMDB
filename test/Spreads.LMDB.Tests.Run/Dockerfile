@@ -3,6 +3,7 @@ WORKDIR /app
 
 FROM microsoft/dotnet:2.1-sdk AS build
 WORKDIR /src
+COPY build/common.props build/
 COPY test/Spreads.LMDB.Tests.Run/Spreads.LMDB.Tests.Run.csproj test/Spreads.LMDB.Tests.Run/
 COPY test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj test/Spreads.LMDB.Tests/
 COPY src/Spreads.LMDB/Spreads.LMDB.csproj src/Spreads.LMDB/

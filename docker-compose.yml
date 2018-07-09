@@ -6,3 +6,14 @@ services:
     build:
       context: .
       dockerfile: test/Spreads.LMDB.Tests.Run/Dockerfile
+    volumes:
+      - E:\tmp\shared_lmdb:/localdata
+    pid: "host"
+  spreads.lmdb.tests.run2:
+    image: ${DOCKER_REGISTRY}spreadslmdbtestsrun2
+    build:
+      context: .
+      dockerfile: test/Spreads.LMDB.Tests.Run/Dockerfile
+    volumes:
+      - E:\tmp\shared_lmdb:/localdata
+    

@@ -39,7 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="1.0.0-build1807011359R" />
+    <PackageReference Include="Spreads.Core" Version="1.0.0-build1807081957R" />
   </ItemGroup>
 
 </Project>
