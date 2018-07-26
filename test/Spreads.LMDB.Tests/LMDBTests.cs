@@ -107,8 +107,8 @@ namespace Spreads.LMDB.Tests
                         keyBytes[3] = (byte)i;
                         fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                         {
-                            var key = new DirectBuffer((IntPtr)keyBytes.Length, keyPtr);
-                            var value = new DirectBuffer((IntPtr)valueBytes.Length, valPtr);
+                            var key = new DirectBuffer(keyBytes.Length, keyPtr);
+                            var value = new DirectBuffer(valueBytes.Length, valPtr);
 
                             var stat1 = db.GetStat();
 
@@ -144,8 +144,8 @@ namespace Spreads.LMDB.Tests
                     keyBytes[3] = (byte)i;
                     fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                     {
-                        var key = new DirectBuffer((IntPtr)keyBytes.Length, keyPtr);
-                        var value = new DirectBuffer((IntPtr)valueBytes.Length, valPtr);
+                        var key = new DirectBuffer(keyBytes.Length, keyPtr);
+                        var value = new DirectBuffer(valueBytes.Length, valPtr);
 
                         // c.TryGet(CursorGetOption.SetKey, ref key, ref value);
                         db.TryGet(txn, ref key, out value);

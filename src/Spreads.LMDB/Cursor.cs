@@ -372,7 +372,7 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             TypeHelper<TValue>.EnsureFixedSize();
             var res = TryFind(direction, ref key1, out DirectBuffer value1);
             if (res)
@@ -442,10 +442,10 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
 
             var valuePtr = AsPointer(ref value);
-            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
 
             var res = TryFindDup(direction, ref key1, ref value1);
             if (res)
@@ -518,8 +518,8 @@ namespace Spreads.LMDB
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             if (TryGet(ref key1, ref value1, operation))
             {
                 key = ReadUnaligned<TKey>((byte*)key1.Data);
@@ -563,8 +563,8 @@ namespace Spreads.LMDB
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             if (TryPut(ref key1, ref value1, options))
             {
                 key = ReadUnaligned<TKey>((byte*)key1.Data);
@@ -588,8 +588,8 @@ namespace Spreads.LMDB
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             Put(ref key1, ref value1, options);
             key = ReadUnaligned<TKey>((byte*)key1.Data);
             value = ReadUnaligned<TValue>((byte*)value1.Data);

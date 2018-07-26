@@ -203,8 +203,8 @@ namespace Spreads.LMDB
             var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
             fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
             {
-                var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
-                var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
+                var key1 = new DirectBuffer(keyBytesSpan.Length, keyPtr);
+                var value1 = new DirectBuffer(valueBytesSpan.Length, valuePtr);
                 NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
                     ref key1, ref value1,
                     flags));
@@ -218,8 +218,8 @@ namespace Spreads.LMDB
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
                 ref key1, ref value1,
                 flags));
@@ -258,8 +258,8 @@ namespace Spreads.LMDB
                 var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
                 fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
                 {
-                    var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
-                    var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
+                    var key1 = new DirectBuffer(keyBytesSpan.Length, keyPtr);
+                    var value1 = new DirectBuffer(valueBytesSpan.Length, valuePtr);
                     NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                         ref key1, ref value1,
                         flags));
@@ -277,8 +277,8 @@ namespace Spreads.LMDB
             {
                 var keyPtr = AsPointer(ref key);
                 var valuePtr = AsPointer(ref value);
-                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+                var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+                var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
                 NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                     ref key1, ref value1,
                     flags));
@@ -298,8 +298,8 @@ namespace Spreads.LMDB
                 var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
                 fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
                 {
-                    var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
-                    var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
+                    var key1 = new DirectBuffer(keyBytesSpan.Length, keyPtr);
+                    var value1 = new DirectBuffer(valueBytesSpan.Length, valuePtr);
                     NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                         ref key1, ref value1,
                         flags));
@@ -317,8 +317,8 @@ namespace Spreads.LMDB
             {
                 var keyPtr = AsPointer(ref key);
                 var valuePtr = AsPointer(ref value);
-                var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-                var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+                var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+                var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
                 NativeMethods.AssertExecute(NativeMethods.sdb_put(LmdbEnvironment._handle.Handle, _handle,
                     ref key1, ref value1,
                     flags));
@@ -342,8 +342,8 @@ namespace Spreads.LMDB
             var valueBytesSpan = MemoryMarshal.Cast<TValue, byte>(value.Span);
             fixed (byte* keyPtr = &MemoryMarshal.GetReference(keyBytesSpan), valuePtr = &MemoryMarshal.GetReference(valueBytesSpan))
             {
-                var key1 = new DirectBuffer((IntPtr)keyBytesSpan.Length, keyPtr);
-                var value1 = new DirectBuffer((IntPtr)valueBytesSpan.Length, valuePtr);
+                var key1 = new DirectBuffer(keyBytesSpan.Length, keyPtr);
+                var value1 = new DirectBuffer(valueBytesSpan.Length, valuePtr);
                 NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
                     ref key1, ref value1));
             }
@@ -355,8 +355,8 @@ namespace Spreads.LMDB
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer((IntPtr)TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
                 ref key1, ref value1));
         }
@@ -373,7 +373,7 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             TypeHelper<TValue>.EnsureFixedSize();
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle,
                 ref key1, out DirectBuffer value1));
@@ -400,7 +400,7 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer((IntPtr)TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             TypeHelper<TValue>.EnsureFixedSize();
             var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle,
                 ref key1, out DirectBuffer value1));
