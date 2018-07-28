@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Spreads.LMDB.Tests.Run
 {
@@ -20,67 +21,72 @@ namespace Spreads.LMDB.Tests.Run
 
     internal class Program
     {
-        private static void Main(string[] args)
+        private static async Task Main(string[] args)
         {
             Trace.Listeners.Add(new ConsoleListener());
-            try
-            {
-                //if (Directory.Exists("/localdata/shared_lmdb"))
-                //{
-                //    Directory.Delete("/localdata/shared_lmdb", true);
-                //}
-                var env = new LMDBEnvironment("/localdata/shared_lmdb", DbEnvironmentFlags.NoSync | DbEnvironmentFlags.WriteMap);
-                env.MapSize = 512L * 1024 * 1024 * 1024;
-                env.Open();
 
-                // write 1M values and then read them
+            var tests = new LMDBTests();
+            await tests.CouldWriteDupfixedFromTwoThreads();
+            Console.WriteLine("Finished");
+            Console.ReadLine();
+            //try
+            //{
+            //    //if (Directory.Exists("/localdata/shared_lmdb"))
+            //    //{
+            //    //    Directory.Delete("/localdata/shared_lmdb", true);
+            //    //}
+            //    var env = new LMDBEnvironment("/localdata/shared_lmdb", DbEnvironmentFlags.NoSync | DbEnvironmentFlags.WriteMap);
+            //    env.MapSize = 512L * 1024 * 1024 * 1024;
+            //    env.Open();
 
-                var db = env.OpenDatabase("test", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey)).Result;
+            //    // write 1M values and then read them
 
-                var count = 1_000_000;
-                var lastValue = 0;
-                var myupdates = 0;
-                env.Write(txn => { db.Truncate(txn); txn.Commit(); });
+            //    var db = env.OpenDatabase("test", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey)).Result;
 
-                Thread.Sleep(5000);
+            //    var count = 1_000_000;
+            //    var lastValue = 0;
+            //    var myupdates = 0;
+            //    env.Write(txn => { db.Truncate(txn); txn.Commit(); });
 
-                var sw = new Stopwatch();
-                sw.Start();
+            //    Thread.Sleep(5000);
 
-                while (lastValue < count)
-                {
-                    env.Write(txn =>
-                    {
-                        using (var c = db.OpenCursor(txn))
-                        {
-                            int key = default(int);
+            //    var sw = new Stopwatch();
+            //    sw.Start();
 
-                            if (c.TryGet(ref key, ref lastValue, CursorGetOption.Last))
-                            {
-                                key++;
-                                if (key - 1 == lastValue)
-                                {
-                                    myupdates++;
-                                }
+            //    while (lastValue < count)
+            //    {
+            //        env.Write(txn =>
+            //        {
+            //            using (var c = db.OpenCursor(txn))
+            //            {
+            //                int key = default(int);
 
-                                lastValue = key;
-                            }
+            //                if (c.TryGet(ref key, ref lastValue, CursorGetOption.Last))
+            //                {
+            //                    key++;
+            //                    if (key - 1 == lastValue)
+            //                    {
+            //                        myupdates++;
+            //                    }
 
-                            c.Put(ref key, ref lastValue, CursorPutOptions.NoOverwrite);
-                            txn.Commit();
-                        }
-                    });
-                }
+            //                    lastValue = key;
+            //                }
 
-                sw.Stop();
-                env.Close().Wait();
-                var elapsed = sw.ElapsedMilliseconds;
-                File.WriteAllText($"/localdata/stat_{Process.GetCurrentProcess().Id}.txt", $"{myupdates} - {elapsed}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex);
-            }
+            //                c.Put(ref key, ref lastValue, CursorPutOptions.NoOverwrite);
+            //                txn.Commit();
+            //            }
+            //        });
+            //    }
+
+            //    sw.Stop();
+            //    env.Close().Wait();
+            //    var elapsed = sw.ElapsedMilliseconds;
+            //    File.WriteAllText($"/localdata/stat_{Process.GetCurrentProcess().Id}.txt", $"{myupdates} - {elapsed}");
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine(ex);
+            //}
         }
     }
 }

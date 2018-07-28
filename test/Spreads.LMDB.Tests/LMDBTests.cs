@@ -7,6 +7,7 @@ using Spreads.LMDB.Interop;
 using Spreads.Utils;
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Spreads.Buffers;
 
@@ -429,6 +430,70 @@ namespace Spreads.LMDB.Tests
                 }
             }
             handle.Dispose();
+
+            Benchmark.Dump();
+
+            await env.Close();
+        }
+
+
+        [Test, Explicit("long runnning")]
+        public async Task CouldWriteDupfixedFromTwoThreads()
+        {
+            var env = new LMDBEnvironment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+
+            env.MapSize = 100 * 1024 * 1024;
+            env.Open();
+
+            var key = 0L;
+
+            var count = 1_000_000;
+
+            var db = env.OpenDatabase("dupfixed_db",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates)).Result;
+
+            var t1 = Task.Run(() =>
+            {
+                
+                using (Benchmark.Run("Write 1", count))
+                {
+                    for (var i = 1; i < count; i++)
+                    {
+                        try
+                        {
+                            db.PutAsync(0, Interlocked.Increment(ref key), TransactionPutOptions.NoDuplicateData).Wait();
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                    }
+                }
+
+            });
+
+            var t2 = Task.Run(() =>
+            {
+                using (Benchmark.Run("Write 2", count))
+                {
+                    for (var i = 1; i < count; i++)
+                    {
+                        try
+                        {
+                            db.PutAsync(0, Interlocked.Increment(ref key), TransactionPutOptions.NoDuplicateData).Wait();
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                    }
+                }
+
+            });
+
+            t1.Wait();
+            t2.Wait();
+            // handle.Dispose();
 
             Benchmark.Dump();
 

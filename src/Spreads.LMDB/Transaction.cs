@@ -5,8 +5,10 @@
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace Spreads.LMDB
 {
@@ -72,11 +74,13 @@ namespace Spreads.LMDB
 
         #region Lifecycle
 
+        public static long _outstandingReadTxns = 0;
+        public static long _outstandingWriteTxns = 0;
+
         private static readonly ObjectPool<TransactionImpl> TxPool =
             new ObjectPool<TransactionImpl>(() => new TransactionImpl(), System.Environment.ProcessorCount * 16);
 
-        private static readonly ObjectPool<ReadTransactionHandle> ReadHandlePool =
-            new ObjectPool<ReadTransactionHandle>(() => new ReadTransactionHandle(), System.Environment.ProcessorCount * 16);
+        private static readonly ConcurrentQueue<ReadTransactionHandle> ReadHandlePool = new ConcurrentQueue<ReadTransactionHandle>();
 
         private TransactionImpl()
         {
@@ -100,12 +104,16 @@ namespace Spreads.LMDB
             var isReadOnly = (beginFlags & TransactionBeginFlags.ReadOnly) == TransactionBeginFlags.ReadOnly;
             if (isReadOnly)
             {
-                var rh = ReadHandlePool.Allocate();
+                if (!ReadHandlePool.TryDequeue(out var rh))
+                {
+                    rh = new ReadTransactionHandle();
+                }
                 if (rh.IsInvalid)
                 {
                     // create new
                     NativeMethods.AssertExecute(
                         NativeMethods.mdb_txn_begin(lmdbEnvironment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
+                    Interlocked.Increment(ref _outstandingReadTxns);
                     rh.SetNewHandle(handle);
                 }
                 else
@@ -127,25 +135,48 @@ namespace Spreads.LMDB
 
         protected void Dispose(bool disposing)
         {
+            var isReadOnly = IsReadOnly;
             if (_state == TransactionState.Disposed)
             {
-                ThrowlAlreadyDisposed();
+                if (disposing)
+                {
+                    ThrowlAlreadyDisposed();
+                }
+                else
+                {
+                    // TxPool.Free could have dropped, currently we cannot detect this
+                    // See comment in Dispose()
+                    if (isReadOnly)
+                    {
+                        _readHandle.Dispose();
+                        Interlocked.Decrement(ref _outstandingReadTxns);
+                    }
+                    return;
+                }
             }
-            var isReadOnly = IsReadOnly;
+            
             if (isReadOnly)
             {
                 if (disposing)
                 {
-                    var rh = _readHandle;
-                    _readHandle = null;
-                    NativeMethods.mdb_txn_reset(rh.Handle);
-                    ReadHandlePool.Free(rh);
-                    // handle will be finalized if do not in pool
+                    if (ReadHandlePool.Count >= _lmdbEnvironment.MaxReaders - Environment.ProcessorCount)
+                    {
+                        _readHandle.Dispose();
+                        Interlocked.Decrement(ref _outstandingReadTxns);
+                    }
+                    else
+                    {
+                        var rh = _readHandle;
+                        _readHandle = null;
+                        NativeMethods.mdb_txn_reset(rh.Handle);
+                        ReadHandlePool.Enqueue(rh);
+                    }
                 }
                 else
                 {
                     Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly.");
                     _readHandle.Dispose();
+                    Interlocked.Decrement(ref _outstandingReadTxns);
                 }
             }
             else

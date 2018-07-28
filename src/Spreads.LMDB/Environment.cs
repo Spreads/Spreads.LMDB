@@ -31,6 +31,7 @@ namespace Spreads.LMDB
         private readonly string _directory;
         private bool _isOpen;
         private readonly ResultsObject _results = new ResultsObject();
+        private uint _maxReaders;
 
         /// <summary>
         /// Creates a new instance of Environment.
@@ -445,9 +446,15 @@ namespace Spreads.LMDB
         /// </summary>
         public int MaxReaders
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
+                if (_isOpen && _maxReaders != 0)
+                {
+                    return (int)_maxReaders;
+                }
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_get_maxreaders(_handle, out var readers));
+                _maxReaders = readers;
                 return (int)readers;
             }
             set
