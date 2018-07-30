@@ -23,14 +23,15 @@ namespace Spreads.LMDB
         private int _maxDbs;
         private int _pageSize;
 
-        private readonly BlockingCollection<(TaskCompletionSource<object>, Delegates)>
-           _writeQueue = new BlockingCollection<(TaskCompletionSource<object>, Delegates)>();
+        private readonly BlockingCollection<Delegates>
+           _writeQueue = new BlockingCollection<Delegates>();
 
         private readonly TaskCompletionSource<object> _writeTaskCompletion = new TaskCompletionSource<object>();
         private readonly CancellationTokenSource _cts;
         private readonly string _directory;
         private bool _isOpen;
-        private readonly ResultsObject _results = new ResultsObject();
+
+        // private readonly ResultsObject _results = new ResultsObject();
         private uint _maxReaders;
 
         /// <summary>
@@ -79,9 +80,7 @@ namespace Spreads.LMDB
                     try
                     {
                         // BLOCKING
-                        var tuple = _writeQueue.Take(_cts.Token);
-                        var tcs = tuple.Item1;
-                        var delegates = tuple.Item2;
+                        var delegates = _writeQueue.Take(_cts.Token);
                         var transactionImpl = delegates.SkipTxnCreate
                             ? null : TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
                         try
@@ -96,60 +95,21 @@ namespace Spreads.LMDB
                             if (delegates.WriteFunction != null)
                             {
                                 var res = delegates.WriteFunction(txn);
-                                if (tcs != null)
-                                {
-                                    tcs.SetResult(res);
-                                }
-                                else if (delegates.Counter > 0)
-                                {
-                                    _results.SetResult(delegates.Counter, res);
-                                }
+                                delegates.Tcs?.SetResult(res);
                             }
                             else if (delegates.WriteAction != null)
                             {
                                 delegates.WriteAction(txn);
-                                if (tcs != null)
-                                {
-                                    tcs.SetResult(null);
-                                }
-                                else if (delegates.Counter > 0)
-                                {
-                                    _results.SetResult(delegates.Counter, null);
-                                }
+                                delegates.Tcs?.SetResult(null);
                             }
                             else
                             {
-                                System.Environment.FailFast("Wrong writer thread setup");
+                                Environment.FailFast("Wrong writer thread setup");
                             }
                         }
                         catch (Exception e)
                         {
-                            if (delegates.WriteFunction != null)
-                            {
-                                if (tcs != null)
-                                {
-                                    tcs.SetException(e);
-                                }
-                                else if (delegates.Counter > 0)
-                                {
-                                    _results.SetException(delegates.Counter, e);
-                                }
-                            }
-                            else if (delegates.WriteAction != null)
-                            {
-                                if (tcs != null)
-                                {
-                                    tcs.SetException(e);
-                                }
-                                else if (delegates.Counter > 0)
-                                {
-                                    _results.SetException(delegates.Counter, e);
-                                }
-                            }
-                            else
-                            {
-                                System.Environment.FailFast("Wrong writer thread setup");
-                            }
+                            delegates.Tcs?.SetException(e);
                         }
                         finally
                         {
@@ -187,112 +147,80 @@ namespace Spreads.LMDB
 
         public bool AutoCommit { get; set; } = false;
 
-        /// <summary>
-        /// Performs a write trasaction asynchronously.
-        /// </summary>
-        public Task<object> WriteAsync(Func<Transaction, object> writeFunction)
+        public object Write(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
-            return WriteAsync(writeFunction, false);
+            return Write(writeFunction, fireAndForget, false);
         }
 
-        internal Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool skipTxnCreate)
+        internal object Write(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
         {
-            var builder = new TaskCompletionSource<object>();
-            var act = new Delegates { WriteFunction = writeFunction, SkipTxnCreate = skipTxnCreate };
-
-            if (!_writeQueue.IsAddingCompleted)
-            {
-                _writeQueue.Add((builder, act));
-            }
-            else
-            {
-                builder.SetException(new OperationCanceledException());
-            }
-
-            return builder.Task;
+            return WriteAsync(writeFunction, fireAndForget, skipTxnCreate).Result;
         }
 
-        public Task WriteAsync(Action<Transaction> writeFunction)
+        public void Write(Action<Transaction> writeAction, bool fireAndForget = false)
         {
-            var builder = new TaskCompletionSource<object>();
-            var act = new Delegates { WriteAction = writeFunction };
-
-            if (!_writeQueue.IsAddingCompleted)
-            {
-                _writeQueue.Add((builder, act));
-            }
-            else
-            {
-                builder.SetException(new OperationCanceledException());
-            }
-
-            return builder.Task;
+            WriteAsync(writeAction, fireAndForget).Wait();
         }
 
         /// <summary>
         /// Queue a write action and spin until it is completed unless fireAndForget is true.
         /// If fireAndForget is true then return immediately.
         /// </summary>
-        public object Write(Func<Transaction, object> writeFunction, bool fireAndForget = false)
+        public Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
-            return Write(writeFunction, fireAndForget, false);
+            return WriteAsync(writeFunction, fireAndForget, false);
         }
 
-        public object Write(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
+        internal Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
         {
-            var counter = fireAndForget ? -1 : _results.Enter();
-
+            TaskCompletionSource<object> tcs;
             if (!_writeQueue.IsAddingCompleted)
             {
+                tcs = fireAndForget ? null : new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var act = new Delegates
                 {
                     WriteFunction = writeFunction,
-                    Counter = counter,
-                    SkipTxnCreate = skipTxnCreate
+                    SkipTxnCreate = skipTxnCreate,
+                    Tcs = tcs
                 };
 
-                _writeQueue.Add((null, act));
+                _writeQueue.Add(act);
             }
             else
             {
                 throw new OperationCanceledException();
             }
 
-            if (fireAndForget) { return null; }
-            var (res, ex) = _results.WaitExit(counter);
-            if (ex is null)
+            if (fireAndForget)
             {
-                return res;
+                return Task.FromResult<object>(null);
             }
-            throw ex;
+
+            return tcs.Task;
         }
 
-        public void Write(Action<Transaction> writeAction, bool fireAndForget = false)
+        public Task WriteAsync(Action<Transaction> writeAction, bool fireAndForget = false)
         {
-            var counter = fireAndForget ? -1 : _results.Enter();
-
+            TaskCompletionSource<object> tcs;
             if (!_writeQueue.IsAddingCompleted)
             {
+                tcs = fireAndForget ? null : new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
                 var act = new Delegates
                 {
                     WriteAction = writeAction,
-                    Counter = counter
+                    Tcs = tcs
                 };
 
-                _writeQueue.Add((null, act));
+                _writeQueue.Add(act);
             }
             else
             {
                 throw new OperationCanceledException();
             }
 
-            if (fireAndForget) { return; }
+            if (fireAndForget) { return Task.CompletedTask; }
 
-            var (_, ex) = _results.WaitExit(counter);
-            if (!(ex is null))
-            {
-                throw ex;
-            }
+            return tcs.Task;
         }
 
         /// <summary>
@@ -325,7 +253,7 @@ namespace Spreads.LMDB
                 var db = new Database(name, txn._impl, config);
                 txn._impl.Commit();
                 return db;
-            });
+            }, false, false);
         }
 
         public void Sync(bool force)
@@ -559,51 +487,61 @@ namespace Spreads.LMDB
         {
             public Func<Transaction, object> WriteFunction;
             public Action<Transaction> WriteAction;
-            public long Counter;
             public bool SkipTxnCreate;
+            public TaskCompletionSource<object> Tcs;
         }
 
-        internal class ResultsObject
-        {
-            // TODO Review this. Probably lack of sleep and cold didn't allow to come up with
-            // anything other than this that is not terribly slow and allows to pass objects back to caller
-            // Still, this is 0.45 MOPS vs Async case of 0.6 MOPS.
-            // Haven't profiled memory, if it doesn't allocate at all than more than OK
+        //internal struct ValueTaskCompleteionSource : IValueTaskSource<object>
+        //{
+        //    // null is valid
+        //    private Opt<object> _value;
+        //    private Action<object> _continuation;
 
-            private long _counter;
-            private ConcurrentDictionary<long, (object, Exception)> _results = new ConcurrentDictionary<long, (object, Exception)>();
+        //    private Action<object> GetCont()
+        //    {
+        //        return _continuation;
+        //    }
 
-            public long Enter()
-            {
-                return Interlocked.Increment(ref _counter);
-            }
+        //    public void SetValue(object value)
+        //    {
+        //        // _value = Opt.Present(value);
+        //        var c = _continuation;
+        //        _continuation = null;
+        //        SpreadsThreadPool.Default.UnsafeQueueCompletableItem(_continuation, value, true);
+        //    }
 
-            public (object, Exception) WaitExit(long counter)
-            {
-                var sw = new SpinWait();
-                while (true)
-                {
-                    if (_results.TryRemove(counter, out var result))
-                    {
-                        return result;
-                    }
-                    sw.SpinOnce();
-                    if (sw.NextSpinWillYield)
-                    {
-                        sw.Reset();
-                    }
-                }
-            }
+        //    public object GetResult(short token)
+        //    {
+        //        if (_value.IsMissing)
+        //        {
+        //            throw new InvalidOperationException("Value is missing");
+        //        }
+        //        return _value.Present;
+        //    }
 
-            public void SetResult(long counter, object obj)
-            {
-                _results[counter] = (obj, null);
-            }
+        //    public ValueTaskSourceStatus GetStatus(short token)
+        //    {
+        //        if (_value.IsPresent)
+        //        {
+        //            return ValueTaskSourceStatus.Succeeded;
+        //        }
 
-            public void SetException(long counter, Exception e)
-            {
-                _results[counter] = (null, e);
-            }
-        }
+        //        return ValueTaskSourceStatus.Pending;
+        //    }
+
+        //    public void OnCompleted(Action<object> continuation, object state, short token, ValueTaskSourceOnCompletedFlags flags)
+        //    {
+        //        if (_value.IsPresent)
+        //        {
+        //            _continuation = _continuation;
+        //        }
+        //        else
+        //        {
+        //            _continuation = continuation;
+        //        }
+
+        //        throw new NotImplementedException();
+        //    }
+        //}
     }
 }

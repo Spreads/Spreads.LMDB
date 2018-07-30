@@ -74,7 +74,7 @@ namespace Spreads.LMDB.Tests
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
 
                 return Task.CompletedTask;
-            });
+            }, false, false);
 
             await env.Close();
         }
@@ -130,7 +130,7 @@ namespace Spreads.LMDB.Tests
 
                     c.Dispose();
                     txn.Commit();
-                });
+                }, false);
             }
 
             Console.WriteLine("---------------------------");
@@ -226,7 +226,7 @@ namespace Spreads.LMDB.Tests
                 }
                 txn.Commit();
                 return null;
-            });
+            }, false, false);
 
             env.Read(txn =>
             {
@@ -299,7 +299,7 @@ namespace Spreads.LMDB.Tests
 
                         txn.Commit();
                         return null;
-                    });
+                    }, false, false);
                 }
             }
 
@@ -333,7 +333,7 @@ namespace Spreads.LMDB.Tests
 
             var values = new byte[] { 1, 2, 3, 4 };
 
-            var count = 10_000_000;
+            var count = 1_000_000;
 
             // NB: Draining queue after benchmark ends, so fire and forget case only shows overhead of sending
             const bool fireAndForget = false;

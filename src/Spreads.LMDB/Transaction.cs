@@ -8,7 +8,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Threading;
 
 namespace Spreads.LMDB
 {
@@ -74,11 +73,8 @@ namespace Spreads.LMDB
 
         #region Lifecycle
 
-        public static long _outstandingReadTxns = 0;
-        public static long _outstandingWriteTxns = 0;
-
         private static readonly ObjectPool<TransactionImpl> TxPool =
-            new ObjectPool<TransactionImpl>(() => new TransactionImpl(), System.Environment.ProcessorCount * 16);
+            new ObjectPool<TransactionImpl>(() => new TransactionImpl(), Environment.ProcessorCount * 16);
 
         private static readonly ConcurrentQueue<ReadTransactionHandle> ReadHandlePool = new ConcurrentQueue<ReadTransactionHandle>();
 
@@ -113,7 +109,6 @@ namespace Spreads.LMDB
                     // create new
                     NativeMethods.AssertExecute(
                         NativeMethods.mdb_txn_begin(lmdbEnvironment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
-                    Interlocked.Increment(ref _outstandingReadTxns);
                     rh.SetNewHandle(handle);
                 }
                 else
@@ -149,12 +144,11 @@ namespace Spreads.LMDB
                     if (isReadOnly)
                     {
                         _readHandle.Dispose();
-                        Interlocked.Decrement(ref _outstandingReadTxns);
                     }
                     return;
                 }
             }
-            
+
             if (isReadOnly)
             {
                 if (disposing)
@@ -162,7 +156,6 @@ namespace Spreads.LMDB
                     if (ReadHandlePool.Count >= _lmdbEnvironment.MaxReaders - Environment.ProcessorCount)
                     {
                         _readHandle.Dispose();
-                        Interlocked.Decrement(ref _outstandingReadTxns);
                     }
                     else
                     {
@@ -176,7 +169,6 @@ namespace Spreads.LMDB
                 {
                     Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly.");
                     _readHandle.Dispose();
-                    Interlocked.Decrement(ref _outstandingReadTxns);
                 }
             }
             else

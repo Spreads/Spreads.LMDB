@@ -20,7 +20,7 @@ namespace Spreads.LMDB
     public class Database : IDisposable
     {
         internal readonly ObjectPool<ReadCursorHandle> ReadHandlePool =
-            new ObjectPool<ReadCursorHandle>(() => new ReadCursorHandle(), System.Environment.ProcessorCount * 16);
+            new ObjectPool<ReadCursorHandle>(() => new ReadCursorHandle(), Environment.ProcessorCount * 16);
 
         internal uint _handle;
         private readonly DatabaseConfig _config;
@@ -126,7 +126,7 @@ namespace Spreads.LMDB
                 txn.Commit();
                 _handle = default;
                 return null;
-            });
+            }, false, false);
         }
 
         /// <summary>
@@ -149,7 +149,7 @@ namespace Spreads.LMDB
                 NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
                 txn.Commit();
                 return null;
-            });
+            }, false, false);
         }
 
         /// <summary>
@@ -305,7 +305,7 @@ namespace Spreads.LMDB
                         flags));
                 }
                 return null;
-            }, true);
+            }, false, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -324,7 +324,7 @@ namespace Spreads.LMDB
                     flags));
 
                 return null;
-            }, true);
+            }, false, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
