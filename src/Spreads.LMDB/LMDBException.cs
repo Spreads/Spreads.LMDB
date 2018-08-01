@@ -18,7 +18,11 @@ namespace Spreads.LMDB
         {
             var ptr = NativeMethods.mdb_strerror(code);
             string message = Marshal.PtrToStringAnsi(ptr);
-            Trace.TraceError(message);
+            if (LMDBEnvironment.TraceErrors)
+            {
+                Trace.TraceError(message);
+            }
+
             return message;
         }
 

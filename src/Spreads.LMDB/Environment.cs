@@ -17,6 +17,11 @@ namespace Spreads.LMDB
     /// </summary>
     public class LMDBEnvironment : IDisposable
     {
+        /// <summary>
+        /// Print LMDB errors as Trace.Error
+        /// </summary>
+        public static bool TraceErrors { get; set; } = false;
+
         private readonly UnixAccessMode _accessMode;
         private readonly DbEnvironmentFlags _openFlags;
         internal EnvironmentHandle _handle;
@@ -237,12 +242,32 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T Read<T>(Func<ReadOnlyTransaction, object, T> readFunc, object state)
+        {
+            using (var txn = TransactionImpl.Create(this, TransactionBeginFlags.ReadOnly))
+            {
+                var rotxn = new ReadOnlyTransaction(txn);
+                return readFunc(rotxn, state);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Read(Action<ReadOnlyTransaction> readAction)
         {
             using (var txn = TransactionImpl.Create(this, TransactionBeginFlags.ReadOnly))
             {
                 var rotxn = new ReadOnlyTransaction(txn);
                 readAction(rotxn);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Read(Action<ReadOnlyTransaction, object> readAction, object state)
+        {
+            using (var txn = TransactionImpl.Create(this, TransactionBeginFlags.ReadOnly))
+            {
+                var rotxn = new ReadOnlyTransaction(txn);
+                readAction(rotxn, state);
             }
         }
 
