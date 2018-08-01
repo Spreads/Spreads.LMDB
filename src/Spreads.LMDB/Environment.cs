@@ -271,6 +271,17 @@ namespace Spreads.LMDB
             }
         }
 
+        /// <summary>
+        /// ReadOnlyTransaction transaction must be disposed ASAP to avoid LMDB environment growth and allocating garbage.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ReadOnlyTransaction BeginReadOnlyTransaction()
+        {
+            var txn = TransactionImpl.Create(this, TransactionBeginFlags.ReadOnly);
+            var rotxn = new ReadOnlyTransaction(txn);
+            return rotxn;
+        }
+
         public async Task<Database> OpenDatabase(string name, DatabaseConfig config)
         {
             return (Database)await WriteAsync(txn =>

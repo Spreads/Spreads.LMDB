@@ -44,7 +44,7 @@ namespace Spreads.LMDB
         }
     }
 
-    public readonly struct ReadOnlyTransaction
+    public readonly struct ReadOnlyTransaction : IDisposable
     {
         internal readonly TransactionImpl _impl;
 
@@ -56,6 +56,11 @@ namespace Spreads.LMDB
                 TransactionImpl.ThrowlTransactionIsReadOnly();
             }
             _impl = txn;
+        }
+
+        public void Dispose()
+        {
+            _impl.Dispose();
         }
     }
 
