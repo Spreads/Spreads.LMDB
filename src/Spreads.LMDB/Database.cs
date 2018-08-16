@@ -396,6 +396,34 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryGet<T>(ReadOnlyTransaction txn, ref DirectBuffer key, out T value)
+            where T : struct
+        {
+            TypeHelper<T>.EnsureFixedSize();
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle,
+                ref key, out DirectBuffer value1));
+            if (res != NativeMethods.MDB_NOTFOUND)
+            {
+                value = ReadUnaligned<T>((byte*)value1.Data);
+                return true;
+            }
+
+            value = default;
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryGet<TKey>(ReadOnlyTransaction txn, ref TKey key, out DirectBuffer value)
+            where TKey : struct 
+        {
+            var keyPtr = AsPointer(ref key);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle,
+                ref key1, out value));
+            return res != NativeMethods.MDB_NOTFOUND;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe bool TryGet<TKey, TValue>(ReadOnlyTransaction txn, ref TKey key, out TValue value)
             where TKey : struct where TValue : struct
         {

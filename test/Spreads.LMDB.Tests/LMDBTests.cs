@@ -3,13 +3,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 using NUnit.Framework;
-using Spreads.LMDB.Interop;
+using Spreads.Buffers;
+using Spreads.Serialization;
 using Spreads.Utils;
 using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Spreads.Buffers;
 
 namespace Spreads.LMDB.Tests
 {
@@ -436,7 +436,6 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
-
         [Test, Explicit("long runnning")]
         public async Task CouldWriteDupfixedFromTwoThreads()
         {
@@ -454,7 +453,6 @@ namespace Spreads.LMDB.Tests
 
             var t1 = Task.Run(() =>
             {
-                
                 using (Benchmark.Run("Write 1", count))
                 {
                     for (var i = 1; i < count; i++)
@@ -469,7 +467,6 @@ namespace Spreads.LMDB.Tests
                         }
                     }
                 }
-
             });
 
             var t2 = Task.Run(() =>
@@ -488,7 +485,6 @@ namespace Spreads.LMDB.Tests
                         }
                     }
                 }
-
             });
 
             t1.Wait();
@@ -496,6 +492,216 @@ namespace Spreads.LMDB.Tests
             // handle.Dispose();
 
             Benchmark.Dump();
+
+            await env.Close();
+        }
+
+        [Serialization(BlittableSize = 16)]
+        public struct InPlaceUpdateable
+        {
+            public long Key;
+            public long Value;
+        }
+
+        [Test, Explicit("long runnning")]
+        public async Task CouldUpdateInplaceFromAbortedWriteTransactions()
+        {
+            var env = new LMDBEnvironment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+
+            env.MapSize = 100 * 1024 * 1024;
+            env.Open();
+
+            var items = 1_000_000;
+            var count = items * 100;
+            var counts = new long[count];
+            var changedPointers = new IntPtr[count];
+            var finalPointers = new IntPtr[count];
+
+            // one thread fills DB with new values, while another increments in-place values while it can and total
+            // sum of
+
+            var db = env.OpenDatabase("update_inplace",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey)).Result;
+            db.Truncate().Wait();
+
+            var t1 = Task.Run(() =>
+            {
+                using (Benchmark.Run("Writer", items * 1000))
+                {
+                    for (var i = 1; i < items; i++)
+                    {
+                        try
+                        {
+                            var value = new InPlaceUpdateable()
+                            {
+                                Key = i,
+                                Value = 0
+                            };
+                            db.PutAsync(i, value, TransactionPutOptions.AppendData | TransactionPutOptions.NoDuplicateData).Wait();
+                            if (i % 1000 == 0)
+                            {
+                                // env.Sync(true);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e.ToString());
+                        }
+                    }
+                }
+            });
+
+            var t2 = Task.Run(() =>
+            {
+                using (Benchmark.Run("Reader", count))
+                {
+                    var cnt = 0;
+                    while (cnt < count)
+                    {
+                        DirectBuffer key = default;
+                        DirectBuffer value = default;
+                        var hasValue = false;
+                        env.Read(txn =>
+                        {
+                            using (var c = db.OpenReadOnlyCursor(txn))
+                            {
+                                if (c.TryGet(ref key, ref value, CursorGetOption.First))
+                                {
+                                    hasValue = true;
+                                    if (key.ReadInt32(0) != value.ReadInt64(0))
+                                    {
+                                        Assert.Fail($"Wrong keys: {key.ReadInt32(0)} vs {value.ReadInt64(0)}");
+                                    }
+
+                                    counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
+
+                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    cnt++;
+                                }
+                            }
+                            // txn.Abort();
+                        });
+
+                        var key1 = 0;
+
+                        while (hasValue)
+                        {
+                            env.Read(txn =>
+                            {
+                                key1++;
+
+                                if (db.TryGet(txn, ref key1, out value))
+                                {
+                                    counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
+                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    cnt++;
+                                }
+                                else
+                                {
+                                    hasValue = false;
+                                }
+
+                                // txn.Abort();
+                            });
+                        }
+                    }
+                }
+            });
+
+            var t3 = Task.Run(() =>
+            {
+                using (Benchmark.Run("Reader", count))
+                {
+                    var cnt = 0;
+                    while (cnt < count)
+                    {
+                        DirectBuffer key = default;
+                        DirectBuffer value = default;
+                        var hasValue = false;
+                        env.Read(txn =>
+                        {
+                            using (var c = db.OpenReadOnlyCursor(txn))
+                            {
+                                if (c.TryGet(ref key, ref value, CursorGetOption.First))
+                                {
+                                    hasValue = true;
+                                    if (key.ReadInt32(0) != value.ReadInt64(0))
+                                    {
+                                        Assert.Fail($"Wrong keys: {key.ReadInt32(0)} vs {value.ReadInt64(0)}");
+                                    }
+                                    counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
+                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    cnt++;
+                                }
+                            }
+                            // txn.Abort();
+                        });
+
+                        var key1 = 0;
+
+                        while (hasValue)
+                        {
+                            env.Read(txn =>
+                            {
+                                key1++;
+
+                                if (db.TryGet(txn, ref key1, out value))
+                                {
+                                    counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
+                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    cnt++;
+                                }
+                                else
+                                {
+                                    hasValue = false;
+                                }
+                                // txn.Abort();
+                            });
+                        }
+                    }
+                }
+            });
+            t3.Wait();
+            t2.Wait();
+            t1.Wait();
+
+            // handle.Dispose();
+
+            long sum = 0;
+            using (var txn = env.BeginReadOnlyTransaction())
+            using (var c = db.OpenReadOnlyCursor(txn))
+            {
+                DirectBuffer key = default;
+                DirectBuffer value = default;
+                var cnt = 0;
+                if (c.TryGet(ref key, ref value, CursorGetOption.First))
+                {
+                    sum += value.ReadInt64(8);
+                    finalPointers[value.ReadInt64(0)] = value.Data;
+                    cnt++;
+                    while (c.TryGet(ref key, ref value, CursorGetOption.Next))
+                    {
+                        sum += value.ReadInt64(8);
+                        finalPointers[value.ReadInt64(0)] = value.Data;
+                        cnt++;
+                    }
+                }
+
+                Console.WriteLine("COUNT: " + cnt);
+            }
+
+            Console.WriteLine("ACTUAL SUM: " + sum);
+            Console.WriteLine("CALCULATED SUM: " + counts.Sum());
+            Assert.AreEqual(counts.Sum(), sum);
+            Benchmark.Dump();
+
+            for (int i = 0; i < finalPointers.Length; i++)
+            {
+                if (changedPointers[i] != finalPointers[i])
+                {
+                    Console.WriteLine($"Pointers {i}: {changedPointers[i]} - {finalPointers[i]} - {changedPointers[i].ToInt64() - finalPointers[i].ToInt64()}");
+                }
+            }
 
             await env.Close();
         }
