@@ -22,6 +22,7 @@ namespace Spreads.LMDB
         /// </summary>
         public static bool TraceErrors { get; set; } = false;
 
+        private int _instanceCount;
         private readonly UnixAccessMode _accessMode;
         private readonly DbEnvironmentFlags _openFlags;
         internal EnvironmentHandle _handle;
@@ -39,13 +40,43 @@ namespace Spreads.LMDB
         // private readonly ResultsObject _results = new ResultsObject();
         private uint _maxReaders;
 
+        private static ConcurrentDictionary<string, LMDBEnvironment> _openEnvs = new ConcurrentDictionary<string, LMDBEnvironment>();
+
+        // Useful for testing when simulating multiple processes in a single one
+        // and not dealing with LMDB-specific multi-process issues, but instead
+        // avoid the breakage from opening LMDB env twice
+        // See Caveats: http://www.lmdb.tech/doc/index.html
+        // Not thread-safe because it happens once per env at process start/end
+
         /// <summary>
         /// Creates a new instance of Environment.
         /// </summary>
         /// <param name="directory">Relative directory for storing database files.</param>
         /// <param name="openFlags">Database open options.</param>
         /// <param name="accessMode">Unix file access privelegies (optional). Only makes sense on unix operationg systems.</param>
-        public LMDBEnvironment(string directory = null,
+        public static LMDBEnvironment Create(string directory = null,
+            DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
+            UnixAccessMode accessMode = UnixAccessMode.Default)
+        {
+#pragma warning disable 618
+            openFlags = openFlags | DbEnvironmentFlags.NoTls;
+#pragma warning restore 618
+
+            // this is machine-local storage for each user.
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                directory = Config.DbEnvironment.DefaultLocation;
+            }
+            var env = _openEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode));
+            if (env._openFlags != openFlags || env._accessMode != accessMode)
+            {
+                throw new InvalidOperationException("Environment is already open in this process with different flags and access mode.");
+            }
+            env._instanceCount++;
+            return env;
+        }
+
+        private LMDBEnvironment(string directory,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default)
         {
@@ -54,11 +85,6 @@ namespace Spreads.LMDB
             openFlags = openFlags | DbEnvironmentFlags.NoTls;
 #pragma warning restore CS0618 // Type or member is obsolete
 
-            // this is machine-local storage for each user.
-            if (string.IsNullOrWhiteSpace(directory))
-            {
-                directory = Config.DbEnvironment.DefaultLocation;
-            }
             if (!System.IO.Directory.Exists(directory))
             {
                 System.IO.Directory.CreateDirectory(directory);
@@ -303,17 +329,34 @@ namespace Spreads.LMDB
         /// Attempts to use any such handles after calling this function will cause a SIGSEGV.
         /// The environment handle will be freed and must not be used again after this call.
         /// </summary>
-        public async Task Close()
+        public Task Close()
         {
-            if (!_isOpen) return;
-            _writeQueue.CompleteAdding();
-            // let finish already added write tasks
-            await _writeTaskCompletion.Task;
-            Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
-            _cts.Cancel();
-            // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
-            _handle.Dispose();
-            _isOpen = false;
+            return Close(false);
+        }
+
+        private async Task Close(bool force)
+        {
+            _instanceCount--;
+            if (_instanceCount < 0)
+            {
+                throw new InvalidOperationException("Multiple disposal of environment");
+            }
+            if (_instanceCount == 0 || force)
+            {
+                if (!force)
+                {
+                    GC.SuppressFinalize(this);
+                }
+                if (!_isOpen) return;
+                _writeQueue.CompleteAdding();
+                // let finish already added write tasks
+                await _writeTaskCompletion.Task;
+                Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
+                _cts.Cancel();
+                // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
+                _handle.Dispose();
+                _isOpen = false;
+            }
         }
 
         public MDB_stat GetStat()
@@ -497,9 +540,9 @@ namespace Spreads.LMDB
             throw new InvalidOperationException("Environment should be opened");
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
-            Close().Wait();
+            Close(!disposing).Wait();
         }
 
         /// <summary>

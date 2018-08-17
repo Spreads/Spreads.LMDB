@@ -358,7 +358,7 @@ namespace Spreads.LMDB
         /// <summary>
         /// Cursor's environment.
         /// </summary>
-        public LMDBEnvironment LmdbEnvironment => Database.LmdbEnvironment;
+        public LMDBEnvironment LmdbEnvironment => Database.Environment;
 
         /// <summary>
         /// Cursor's database.

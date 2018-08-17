@@ -21,7 +21,7 @@ namespace Spreads.LMDB.Tests
         {
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
             Console.WriteLine(LMDBVersionInfo.Version);
-            var env = new LMDBEnvironment("./Data/test_db");
+            var env = LMDBEnvironment.Create("./Data/test_db");
             env.Open();
             var stat = env.GetStat();
             Console.WriteLine("entries: " + stat.ms_entries);
@@ -35,7 +35,7 @@ namespace Spreads.LMDB.Tests
             Console.WriteLine(LMDBVersionInfo.Version);
             for (int i = 0; i < 200; i++)
             {
-                var env = new LMDBEnvironment("./Data/test_db" + i);
+                var env = LMDBEnvironment.Create("./Data/test_db" + i);
                 env.MapSize = 10L * 1024 * 1024 * 1024;
                 env.Open();
                 var stat = env.GetStat();
@@ -47,7 +47,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public async Task CouldWriteAsync()
         {
-            var env = new LMDBEnvironment("./Data");
+            var env = LMDBEnvironment.Create("./Data");
             env.Open();
             var stat = env.GetStat();
 
@@ -82,7 +82,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public unsafe void CouldReserve()
         {
-            var env = new LMDBEnvironment("./Data",
+            var env = LMDBEnvironment.Create("./Data",
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.MapSize = 126 * 1024 * 1024;
 
@@ -173,7 +173,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldWrite()
         {
-            var env = new LMDBEnvironment("./Data",
+            var env = LMDBEnvironment.Create("./Data",
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
             var stat = env.GetStat();
@@ -207,7 +207,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteAndReadProfileReadPath()
         {
-            var env = new LMDBEnvironment("./Data");
+            var env = LMDBEnvironment.Create("./Data");
             env.Open();
 
             var db = await env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
@@ -271,7 +271,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteAndReadProfileWriteAsyncPath()
         {
-            var env = new LMDBEnvironment("./Data",
+            var env = LMDBEnvironment.Create("./Data",
                 // for any other config we have SQLite :)
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
@@ -326,7 +326,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public void CouldWriteAndReadProfileWriteSYNCPath()
         {
-            var env = new LMDBEnvironment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)).Result;
@@ -381,7 +381,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteDupfixed()
         {
-            var env = new LMDBEnvironment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -439,7 +439,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteDupfixedFromTwoThreads()
         {
-            var env = new LMDBEnvironment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -506,7 +506,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldUpdateInplaceFromAbortedWriteTransactions()
         {
-            var env = new LMDBEnvironment("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -704,6 +704,25 @@ namespace Spreads.LMDB.Tests
             }
 
             await env.Close();
+        }
+
+        [Test]
+        public void CouldOpenMultipleEnvironmentsInTheSameProcess()
+        {
+            var env1 = LMDBEnvironment.Create("./Data/multiple_open_env");
+            env1.Open();
+            var env2 = LMDBEnvironment.Create("./Data/multiple_open_env");
+            env2.Open();
+            Assert.IsTrue(ReferenceEquals(env1, env2));
+            Assert.IsTrue(env2.IsOpen);
+            env2.Close().Wait();
+            Assert.IsTrue(env1.IsOpen);
+            var env3 = LMDBEnvironment.Create("./Data/multiple_open_env");
+            Assert.IsTrue(ReferenceEquals(env1, env3));
+            env1.Close().Wait();
+            Assert.IsTrue(env3.IsOpen);
+            env3.Close().Wait();
+            Assert.IsFalse(env3.IsOpen);
         }
     }
 }
