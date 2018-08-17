@@ -153,7 +153,8 @@ namespace Spreads.LMDB
             });
             var writeThread = new Thread(threadStart)
             {
-                Name = "LMDB Writer thread"
+                Name = "LMDB Writer thread",
+                IsBackground = true
             };
             writeThread.Start();
         }
