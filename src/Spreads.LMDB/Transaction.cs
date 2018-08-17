@@ -188,8 +188,9 @@ namespace Spreads.LMDB
                         }
                         else
                         {
-                            Trace.Fail("Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
                             NativeMethods.mdb_txn_abort(_writeHandle);
+                            // This should not be catchable
+                            Environment.FailFast("Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
                         }
                     }
                 }

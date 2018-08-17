@@ -436,6 +436,94 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
+        [Test]
+        public async Task CouldDeleteDupSorted()
+        {
+            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+
+            env.MapSize = 100 * 1024 * 1024;
+            env.Open();
+
+            var db = await env.OpenDatabase("dupfixed_db",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
+            db.Truncate().Wait();
+
+            var count = 10;
+
+            for (var i = 1; i <= count; i++)
+            {
+                try
+                {
+                    await db.PutAsync(0, i, TransactionPutOptions.AppendDuplicateData);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.ToString());
+                }
+            }
+
+            using (var txn = env.BeginReadOnlyTransaction())
+            {
+                Assert.AreEqual(1, db.AsEnumerable<int, int>(txn).Count());
+                foreach (var kvp in db.AsEnumerable<int,int>(txn))
+                {
+                    Console.WriteLine($"kvp: {kvp.Key} - {kvp.Value}");
+                }
+
+                Assert.AreEqual(10, db.AsEnumerable<int, int>(txn, 0).Count());
+                foreach (var value in db.AsEnumerable<int, int>(txn, 0))
+                {
+                    Console.WriteLine("Key0 value: " + value);    
+                }
+            }
+
+
+            env.Write(txn =>
+            {
+                db.Delete(txn, 0, 5);
+                txn.Commit();
+            });
+            Console.WriteLine("AFTER DELETE SINGLE DUPSORT");
+            using (var txn = env.BeginReadOnlyTransaction())
+            {
+                Assert.AreEqual(1, db.AsEnumerable<int, int>(txn).Count());
+                foreach (var kvp in db.AsEnumerable<int, int>(txn))
+                {
+                    Console.WriteLine($"kvp: {kvp.Key} - {kvp.Value}");
+                }
+
+                Assert.AreEqual(9, db.AsEnumerable<int, int>(txn, 0).Count());
+                foreach (var value in db.AsEnumerable<int, int>(txn, 0))
+                {
+                    Console.WriteLine("Key0 value: " + value);
+                }
+            }
+
+            env.Write(txn =>
+            {
+                db.Delete(txn, 0);
+                txn.Commit();
+            });
+
+            Console.WriteLine("AFTER DELETE ALL DUPSORT");
+            using (var txn = env.BeginReadOnlyTransaction())
+            {
+                Assert.AreEqual(0, db.AsEnumerable<int, int>(txn).Count());
+                foreach (var kvp in db.AsEnumerable<int, int>(txn))
+                {
+                    Console.WriteLine($"kvp: {kvp.Key} - {kvp.Value}");
+                }
+
+                Assert.AreEqual(0, db.AsEnumerable<int, int>(txn, 0).Count());
+                foreach (var value in db.AsEnumerable<int, int>(txn, 0))
+                {
+                    Console.WriteLine("Key0 value: " + value);
+                }
+            }
+
+            await env.Close();
+        }
+
         [Test, Explicit("long runnning")]
         public async Task CouldWriteDupfixedFromTwoThreads()
         {

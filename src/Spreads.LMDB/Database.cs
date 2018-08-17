@@ -7,8 +7,9 @@ using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using Spreads.Serialization;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using static System.Runtime.CompilerServices.Unsafe;
 
@@ -195,7 +196,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Put<TKey, TValue>(Transaction txn, TKey key, TValue value, 
+        public unsafe void Put<TKey, TValue>(Transaction txn, TKey key, TValue value,
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
@@ -268,42 +269,66 @@ namespace Spreads.LMDB
             }, false, true);
         }
 
+        /// <summary>
+        /// Delete key/value at key or all dupsort values if db supports dupsorted
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Delete(Transaction txn, ref DirectBuffer key, ref DirectBuffer value)
+        public void Delete(Transaction txn, ref DirectBuffer key)
         {
             NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
-                ref key, ref value));
+                in key, IntPtr.Zero));
         }
 
-        // TODO no refs, and value must be opt for dupsort, otherwise we cannot distinguish between default struct as null or zero int
+        /// <summary>
+        /// Delete key/value at key or all dupsort values if db supports dupsorted
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Delete<T>(Transaction txn, ref DirectBuffer key, ref T value)
-            where T : struct
-        {
-            var valuePtr = AsPointer(ref value);
-            var value1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)valuePtr);
-            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle, ref key, ref value1));
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Delete<T>(Transaction txn, T key, ref DirectBuffer value)
+        public unsafe void Delete<T>(Transaction txn, T key)
             where T : struct
         {
             var keyPtr = AsPointer(ref key);
             var key1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
-            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
-                ref key1, ref value));
+            Delete(txn, ref key1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Delete<TKey, TValue>(Transaction txn, ref TKey key, ref TValue value)
+        public void Delete(Transaction txn, DirectBuffer key, DirectBuffer value)
+        {
+            if (((int)OpenFlags & (int)DbFlags.DuplicatesSort) == 0)
+            {
+                throw new InvalidOperationException("Value parameter should only be provided for dupsorted dbs");
+            }
+            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
+                in key, in value));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Delete<T>(Transaction txn, DirectBuffer key, T value)
+            where T : struct
+        {
+            var valuePtr = AsPointer(ref value);
+            var value1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)valuePtr);
+            Delete(txn, key, value1);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Delete<T>(Transaction txn, T key, DirectBuffer value)
+            where T : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var key1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
+            Delete(txn, key1, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void Delete<TKey, TValue>(Transaction txn, TKey key, TValue value)
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
             var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
-            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle, ref key1, ref value1));
+            Delete(txn, key1, value1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -408,6 +433,133 @@ namespace Spreads.LMDB
 
             value = default;
             return false;
+        }
+
+        /// <summary>
+        /// Iterate over db values.
+        /// </summary>
+        public IEnumerable<KeyValuePair<DirectBuffer, DirectBuffer>> AsEnumerable(ReadOnlyTransaction txn)
+        {
+            DirectBuffer key = default;
+            DirectBuffer value = default;
+            using (var c = OpenReadOnlyCursor(txn))
+            {
+                if (c.TryGet(ref key, ref value, CursorGetOption.First))
+                {
+                    yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
+                    value = default;
+                }
+
+                while (c.TryGet(ref key, ref value, CursorGetOption.NextNoDuplicate))
+                {
+                    yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
+                    value = default;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Iterate over db values.
+        /// </summary>
+        public IEnumerable<KeyValuePair<TKey, TValue>> AsEnumerable<TKey, TValue>(ReadOnlyTransaction txn)
+        {
+            var keySize = TypeHelper<TKey>.EnsureFixedSize();
+            var valueSize = TypeHelper<TValue>.EnsureFixedSize();
+
+            return AsEnumerable(txn).Select(kvp =>
+            {
+                if (kvp.Key.Length != keySize)
+                {
+                    throw new InvalidOperationException("Key buffer length does not equals to key size");
+                }
+
+                if (kvp.Value.Length != valueSize)
+                {
+                    throw new InvalidOperationException("Value buffer length does not equals to value size");
+                }
+                return new KeyValuePair<TKey, TValue>(kvp.Key.Read<TKey>(0), kvp.Value.Read<TValue>(0));
+            });
+        }
+
+        private IEnumerable<DirectBuffer> AsEnumerable(ReadOnlyTransaction txn, RetainedMemory<byte> key)
+        {
+            if (((int)OpenFlags & (int)DbFlags.DuplicatesSort) == 0)
+            {
+                throw new InvalidOperationException("AsEnumerable overload with key parameter should only be provided for dupsorted dbs");
+            }
+
+            try
+            {
+                var key1 = new DirectBuffer(key.Span);
+                DirectBuffer value = default;
+                using (var c = OpenReadOnlyCursor(txn))
+                {
+                    if (c.TryGet(ref key1, ref value, CursorGetOption.SetKey) &&
+                        c.TryGet(ref key1, ref value, CursorGetOption.FirstDuplicate))
+                    {
+                        yield return value;
+                    }
+
+                    while (c.TryGet(ref key1, ref value, CursorGetOption.NextDuplicate))
+                    {
+                        yield return value;
+                    }
+                }
+            }
+            finally
+            {
+                key.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Iterate over dupsorted values by key.
+        /// </summary>
+        public IEnumerable<DirectBuffer> AsEnumerable(ReadOnlyTransaction txn, DirectBuffer key)
+        {
+            if (((int)OpenFlags & (int)DbFlags.DuplicatesSort) == 0)
+            {
+                throw new InvalidOperationException("AsEnumerable overload with key parameter should only be provided for dupsorted dbs");
+            }
+
+            var fixedMemory = BufferPool.Retain(checked((int)key.Length), true);
+            key.Span.CopyTo(fixedMemory.Span);
+            return AsEnumerable(txn, fixedMemory);
+        }
+
+        /// <summary>
+        /// Iterate over dupsorted values by key.
+        /// </summary>
+        public unsafe IEnumerable<DirectBuffer> AsEnumerable<T>(ReadOnlyTransaction txn, T key)
+        {
+            var keyPtr = AsPointer(ref key);
+            var keyLength = TypeHelper<T>.EnsureFixedSize();
+            var key1 = new DirectBuffer(keyLength, (byte*)keyPtr);
+            var fixedMemory = BufferPool.Retain(keyLength, true);
+            key1.Span.CopyTo(fixedMemory.Span);
+            return AsEnumerable(txn, fixedMemory);
+        }
+
+        /// <summary>
+        /// Iterate over dupsorted values by key.
+        /// </summary>
+        public unsafe IEnumerable<TValue> AsEnumerable<TKey, TValue>(ReadOnlyTransaction txn, TKey key)
+        {
+            var keyPtr = AsPointer(ref key);
+            var keyLength = TypeHelper<TKey>.EnsureFixedSize();
+            var key1 = new DirectBuffer(keyLength, (byte*)keyPtr);
+            var fixedMemory = BufferPool.Retain(keyLength, true);
+            key1.Span.CopyTo(fixedMemory.Span);
+
+            return AsEnumerable(txn, fixedMemory).Select(buf =>
+              {
+                  var valueSize = TypeHelper<TValue>.EnsureFixedSize();
+                  if (buf.Length != valueSize)
+                  {
+                      throw new InvalidOperationException("Buffer length does not equals to value size");
+                  }
+                  return buf.Read<TValue>(0);
+              });
         }
 
         protected virtual void Dispose(bool disposing)

@@ -156,10 +156,10 @@ namespace Spreads.LMDB.Interop
         public static extern int mdb_put(IntPtr txn, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_del(IntPtr txn, uint dbi, ref DirectBuffer key, ref DirectBuffer data);
+        public static extern int mdb_del(IntPtr txn, uint dbi, in DirectBuffer key, in DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_del(IntPtr txn, uint dbi, ref DirectBuffer key, IntPtr data);
+        public static extern int mdb_del(IntPtr txn, uint dbi, in DirectBuffer key, IntPtr data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_open(IntPtr txn, uint dbi, out IntPtr cursor);
