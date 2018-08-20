@@ -112,8 +112,10 @@ namespace Spreads.LMDB
                     {
                         // BLOCKING
                         var delegates = _writeQueue.Take(_cts.Token);
+
                         var transactionImpl = delegates.SkipTxnCreate
                             ? null : TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
+
                         try
                         {
                             // TODO for some methods such as mbd_put we should have a C method
@@ -296,6 +298,18 @@ namespace Spreads.LMDB
                 var rotxn = new ReadOnlyTransaction(txn);
                 readAction(rotxn, state);
             }
+        }
+
+        /// <summary>
+        /// A thread can only use one transaction at a time, plus any child transactions. Each transaction belongs to one thread.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [Obsolete("Do not use in async code: A thread can only use one transaction at a time, plus any child transactions. Each transaction belongs to one thread.")]
+        public Transaction BeginTransaction()
+        {
+            var impl = TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
+            var txn = new Transaction(impl);
+            return txn;
         }
 
         /// <summary>
