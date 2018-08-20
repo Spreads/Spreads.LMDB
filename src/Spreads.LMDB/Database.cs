@@ -143,14 +143,21 @@ namespace Spreads.LMDB
         /// <summary>
         /// Truncates all data from the database.
         /// </summary>
-        public Task Truncate()
+        public void Truncate()
         {
-            return Environment.WriteAsync(txn =>
+#pragma warning disable 618
+            var txn = Environment.BeginTransaction();
+#pragma warning restore 618
+            try
             {
                 NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
                 txn.Commit();
-                return null;
-            }, false, false);
+            }
+            catch
+            {
+                txn.Abort();
+                throw;
+            }
         }
 
         /// <summary>

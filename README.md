@@ -3,12 +3,16 @@
 Low-level zero-overhead and the fastest LMDB .NET wrapper with some additional native 
 methods useful for [Spreads](https://github.com/Spreads/).
 
-Available on NuGet as [Spreads.LMDB](https://www.nuget.org/packages/Spreads.LMDB).
+Available on NuGet as [Spreads.LMDB](https://www.nuget.org/packages/Spreads.LMDB). (Stale, ping the author if you want the latest version published)
 
 ## Full C# `async/await` support
 
-Read transactions could be used from async code, while write transactions are executed 
-in a single thread via a blocking concurrent queue. This requires forcing [`MDB_NOTLS`](http://www.lmdb.tech/doc/group__mdb.html#ga32a193c6bf4d7d5c5d579e71f22e9340) 
+LMDB's supported "normal" case is when a transaction is executed from a single thread. For .NET this means 
+that if all operations on a transactions are called from a single thread it doesn't matter which
+thread is executing a transaction and LMDB will just work.
+
+In some cases one my need background execution of write transactions or .NET async operations inside LMDB transactions. For this case Spreads.LMDB
+fully supports async/await. Write transactions are executed in a single thread via a blocking concurrent queue. Read transactions could be used from async code, which requires forcing [`MDB_NOTLS`](http://www.lmdb.tech/doc/group__mdb.html#ga32a193c6bf4d7d5c5d579e71f22e9340) 
 attribute for environments:
 
 > A thread may use parallel read-only transactions. A read-only transaction may span threads if the user synchronizes its use. Applications that multiplex many user threads over individual OS threads need this option. Such an application must also serialize the write transactions in an OS thread, since LMDB's write locking is unaware of the user threads.
@@ -42,8 +46,7 @@ There are a couple of tests that show how to use the code.
 
 This is being deployed and tested in production. I needed a zero-overhead but convenient wrapper,
 not raw P/Invoke. [`Span<T>` et al.](https://msdn.microsoft.com/en-us/magazine/mt814808.aspx) are perfect
-for this! On May 31st .NET Core 2.1 was finally released - and (by accident) the first version of this
-library. The perfect .NET release with the powerful memory access tools meet the perfect database!
+for this!
 
 The project has required binaries in `lib` folder - they are native dlls compressed with 
 `deflate` and embedded into the package dll as resources (this often simplifies deployment). 

@@ -143,6 +143,7 @@ namespace Spreads.LMDB
                         catch (Exception e)
                         {
                             delegates.Tcs?.SetException(e);
+                            transactionImpl?.Abort();
                         }
                         finally
                         {
@@ -323,14 +324,22 @@ namespace Spreads.LMDB
             return rotxn;
         }
 
-        public async Task<Database> OpenDatabase(string name, DatabaseConfig config)
+        public Database OpenDatabase(string name, DatabaseConfig config)
         {
-            return (Database)await WriteAsync(txn =>
+#pragma warning disable 618
+            var txn = BeginTransaction();
+#pragma warning restore 618
+            try
             {
                 var db = new Database(name, txn._impl, config);
                 txn._impl.Commit();
                 return db;
-            }, false, false);
+            }
+            catch
+            {
+                txn.Abort();
+                throw;
+            }
         }
 
         public void Sync(bool force)

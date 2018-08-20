@@ -51,7 +51,9 @@ namespace Spreads.LMDB.Tests
             env.Open();
             var stat = env.GetStat();
 
-            var db = await env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
+            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
+
+            db.Truncate();
 
             var values = new byte[] { 1, 2, 3, 4 };
 
@@ -72,7 +74,7 @@ namespace Spreads.LMDB.Tests
                 }
 
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
-
+                txn.Commit();
                 return Task.CompletedTask;
             }, false, false);
 
@@ -88,7 +90,7 @@ namespace Spreads.LMDB.Tests
 
             env.Open();
 
-            var db = env.OpenDatabase("db_reserve", new DatabaseConfig(DbFlags.Create)).Result;
+            var db = env.OpenDatabase("db_reserve", new DatabaseConfig(DbFlags.Create));
 
             var keyBytes = new byte[] { 1, 2, 3, 4 };
             var valueBytes = new byte[4096 * 2 - 16];
@@ -178,7 +180,7 @@ namespace Spreads.LMDB.Tests
             env.Open();
             var stat = env.GetStat();
 
-            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)).Result;
+            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
 
             var values = new byte[] { 1, 2, 3, 4 };
 
@@ -199,6 +201,8 @@ namespace Spreads.LMDB.Tests
                 }
 
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
+
+                txn.Commit();
             });
 
             env.Close().Wait();
@@ -210,7 +214,7 @@ namespace Spreads.LMDB.Tests
             var env = LMDBEnvironment.Create("./Data");
             env.Open();
 
-            var db = await env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
+            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
 
             var values = new byte[] { 1, 2, 3, 4 };
 
@@ -276,7 +280,7 @@ namespace Spreads.LMDB.Tests
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
 
-            var db = await env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
+            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
 
             var values = new byte[] { 1, 2, 3, 4 };
 
@@ -329,7 +333,7 @@ namespace Spreads.LMDB.Tests
             var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
 
-            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)).Result;
+            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
 
             var values = new byte[] { 1, 2, 3, 4 };
 
@@ -386,7 +390,7 @@ namespace Spreads.LMDB.Tests
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
 
-            var db = await env.OpenDatabase("dupfixed_db",
+            var db = env.OpenDatabase("dupfixed_db",
                 new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
 
             //await db.Drop();
@@ -444,9 +448,9 @@ namespace Spreads.LMDB.Tests
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
 
-            var db = await env.OpenDatabase("dupfixed_db",
+            var db = env.OpenDatabase("dupfixed_db",
                 new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
-            db.Truncate().Wait();
+            db.Truncate();
 
             var count = 10;
 
@@ -537,7 +541,7 @@ namespace Spreads.LMDB.Tests
             var count = 1_000_000;
 
             var db = env.OpenDatabase("dupfixed_db",
-                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates)).Result;
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
 
             var t1 = Task.Run(() =>
             {
@@ -609,8 +613,8 @@ namespace Spreads.LMDB.Tests
             // sum of
 
             var db = env.OpenDatabase("update_inplace",
-                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey)).Result;
-            db.Truncate().Wait();
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
+            db.Truncate();
 
             var t1 = Task.Run(() =>
             {
