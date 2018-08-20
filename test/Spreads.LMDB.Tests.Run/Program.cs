@@ -25,8 +25,8 @@ namespace Spreads.LMDB.Tests.Run
         {
             Trace.Listeners.Add(new ConsoleListener());
 
-            var tests = new LMDBTests();
-            await tests.CouldWriteDupfixedFromTwoThreads();
+            var tests = new SpreadsMethodsTests();
+            tests.CouldFindDup();
             Console.WriteLine("Finished");
             Console.ReadLine();
             //try

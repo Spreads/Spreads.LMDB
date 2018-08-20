@@ -195,3 +195,5 @@ docs/content/release-notes.md
 project.lock.json
 
 .idea
+/lib/libspreadsdb/src/libspreadsdb/libspreads_lmdb.def
+/lib/libspreadsdb/src/libspreadsdb/libspreads_lmdb.lib

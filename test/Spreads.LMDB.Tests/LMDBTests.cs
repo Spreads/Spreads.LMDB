@@ -21,7 +21,7 @@ namespace Spreads.LMDB.Tests
         {
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
             Console.WriteLine(LMDBVersionInfo.Version);
-            var env = LMDBEnvironment.Create("./Data/test_db");
+            var env = LMDBEnvironment.Create("./Data/CouldCreateEnvironment");
             env.Open();
             var stat = env.GetStat();
             Console.WriteLine("entries: " + stat.ms_entries);
@@ -47,7 +47,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public async Task CouldWriteAsync()
         {
-            var env = LMDBEnvironment.Create("./Data");
+            var env = LMDBEnvironment.Create("./Data/CouldWriteAsync");
             env.Open();
             var stat = env.GetStat();
 
@@ -84,7 +84,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public unsafe void CouldReserve()
         {
-            var env = LMDBEnvironment.Create("./Data",
+            var env = LMDBEnvironment.Create("./Data/CouldReserve",
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.MapSize = 126 * 1024 * 1024;
 
@@ -175,7 +175,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldWrite()
         {
-            var env = LMDBEnvironment.Create("./Data",
+            var env = LMDBEnvironment.Create("./Data/CouldWrite",
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
             var stat = env.GetStat();
@@ -211,7 +211,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteAndReadProfileReadPath()
         {
-            var env = LMDBEnvironment.Create("./Data");
+            var env = LMDBEnvironment.Create("./Data/CouldWriteAndReadProfileReadPath");
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
@@ -275,7 +275,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteAndReadProfileWriteAsyncPath()
         {
-            var env = LMDBEnvironment.Create("./Data",
+            var env = LMDBEnvironment.Create("./Data/CouldWriteAndReadProfileWriteAsyncPath",
                 // for any other config we have SQLite :)
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
@@ -330,7 +330,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public void CouldWriteAndReadProfileWriteSYNCPath()
         {
-            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data/CouldWriteAndReadProfileWriteSYNCPath", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
@@ -385,7 +385,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteDupfixed()
         {
-            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data/CouldWriteDupfixed", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -443,7 +443,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public async Task CouldDeleteDupSorted()
         {
-            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data/CouldDeleteDupSorted", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -531,7 +531,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldWriteDupfixedFromTwoThreads()
         {
-            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data/CouldWriteDupfixedFromTwoThreads", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -598,7 +598,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public async Task CouldUpdateInplaceFromAbortedWriteTransactions()
         {
-            var env = LMDBEnvironment.Create("./Data", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("./Data/CouldUpdateInplaceFromAbortedWriteTransactions", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();

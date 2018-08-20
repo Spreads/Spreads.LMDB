@@ -1,0 +1,3 @@
+[submodule "lib/libspreadsdb/lmdb"]
+	path = lib/libspreadsdb/lmdb
+	url = https://github.com/LMDB/lmdb.git
