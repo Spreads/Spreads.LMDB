@@ -3,6 +3,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 using NUnit.Framework;
+using System;
+using System.Runtime.InteropServices;
 
 namespace Spreads.LMDB.Tests
 {
@@ -717,6 +719,56 @@ namespace Spreads.LMDB.Tests
             env.Close().Wait();
         }
 
+        [StructLayout(LayoutKind.Explicit, Size = 32)]
+        public struct MyDupSorted
+        {
+            [FieldOffset(0)]
+            public ulong Key;
+            [FieldOffset(8)]
+            public long Value1;
+            [FieldOffset(16)]
+            public long Value2;
+            [FieldOffset(24)]
+            public uint Value3;
+            [FieldOffset(28)]
+            public int Value4;
+        }
 
+        [Test]
+        public void CouldFindDupDSIssue()
+        {
+            var env = LMDBEnvironment.Create("./Data/CouldFindDup",
+                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            env.Open();
+
+            var db = env.OpenDatabase("_streamLogs",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates | DbFlags.DuplicatesFixed | DbFlags.IntegerKey)
+                {
+                    DupSortPrefix = 64
+                });
+            // db.Truncate();
+
+            var nodupKey = 10000;
+            var count = 2;
+            for (int i = 0; i < count; i++)
+            {
+                var lr1 = new MyDupSorted() { Key = (ulong)i + 1 };
+                db.Put(nodupKey, lr1);
+
+                using (var txn = env.BeginReadOnlyTransaction())
+                {
+                    var c = db.OpenReadOnlyCursor(txn);
+                    var searchValue = new MyDupSorted() { Key = ulong.MaxValue };
+                    var found = c.TryFindDup(Lookup.LT, ref nodupKey, ref searchValue);
+                    Assert.IsTrue(found);
+                }
+
+            }
+
+           
+            
+
+            env.Close().Wait();
+        }
     }
 }

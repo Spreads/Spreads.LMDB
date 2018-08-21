@@ -30,6 +30,5 @@
 
     <PropertyGroup>
         <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-        <OutputPath>..\..\bin\</OutputPath>
     </PropertyGroup>
 </Project>

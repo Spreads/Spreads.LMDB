@@ -220,22 +220,9 @@ namespace Spreads.LMDB
         internal void Put(ref DirectBuffer key, ref DirectBuffer value,
             TransactionPutOptions flags = TransactionPutOptions.None)
         {
-            var key2 = key;
-            var value2 = value;
-            Environment.Write(txn =>
-            {
-                var k = key2;
-                var v = value2;
-
-                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
-                    ref k, ref v,
-                    flags));
-                key2 = k;
-                value2 = v;
-                return null;
-            }, false, true);
-            key = key2;
-            value = value2;
+            NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                ref key, ref value,
+                flags));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -243,18 +230,13 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
-            Environment.Write(txn =>
-            {
-                var keyPtr = AsPointer(ref key);
-                var valuePtr = AsPointer(ref value);
-                var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-                var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
-                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
-                    ref key1, ref value1,
-                    flags));
-
-                return null;
-            }, false, true);
+            var keyPtr = AsPointer(ref key);
+            var valuePtr = AsPointer(ref value);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
+                ref key1, ref value1,
+                flags));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -262,18 +244,7 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
-            return Environment.WriteAsync(txn =>
-            {
-                var keyPtr = AsPointer(ref key);
-                var valuePtr = AsPointer(ref value);
-                var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-                var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
-                NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
-                    ref key1, ref value1,
-                    flags));
-
-                return null;
-            }, false, true);
+            return Task.Run(() => Put(key, value, flags));
         }
 
         /// <summary>

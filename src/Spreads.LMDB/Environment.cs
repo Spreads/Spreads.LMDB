@@ -306,9 +306,13 @@ namespace Spreads.LMDB
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [Obsolete("Do not use in async code: A thread can only use one transaction at a time, plus any child transactions. Each transaction belongs to one thread.")]
-        public Transaction BeginTransaction()
+        public Transaction BeginTransaction(TransactionBeginFlags flags = TransactionBeginFlags.ReadWrite)
         {
-            var impl = TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
+            if (((int)flags & (int)TransactionBeginFlags.ReadOnly) != 0)
+            {
+                throw new InvalidOperationException("Use BeginReadOnlyTransaction for readonly transactions");
+            }
+            var impl = TransactionImpl.Create(this, flags);
             var txn = new Transaction(impl);
             return txn;
         }
