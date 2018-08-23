@@ -13,7 +13,7 @@ namespace Spreads.LMDB
 {
     // NB: wrappers are only exposed from inside using(...){...} therefore they are not disposable, we always dispose inner TransactionImpl
 
-    public readonly struct Transaction
+    public readonly struct Transaction : IDisposable
     {
         internal readonly TransactionImpl _impl;
 
@@ -41,6 +41,11 @@ namespace Spreads.LMDB
         public void Abort()
         {
             _impl.Abort();
+        }
+
+        public void Dispose()
+        {
+            _impl.Dispose();
         }
     }
 
@@ -200,6 +205,7 @@ namespace Spreads.LMDB
                     {
                         Trace.TraceWarning("Finalizing active transaction. Will abort it.");
                         NativeMethods.mdb_txn_abort(_writeHandle);
+                        Environment.FailFast("Finalizing active transaction. Will abort it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
                     }
                     else
                     {

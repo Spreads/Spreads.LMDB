@@ -146,17 +146,19 @@ namespace Spreads.LMDB
         public void Truncate()
         {
 #pragma warning disable 618
-            var txn = Environment.BeginTransaction();
+            using (var txn = Environment.BeginTransaction())
 #pragma warning restore 618
-            try
             {
-                NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
-                txn.Commit();
-            }
-            catch
-            {
-                txn.Abort();
-                throw;
+                try
+                {
+                    NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
+                    txn.Commit();
+                }
+                catch
+                {
+                    txn.Abort();
+                    throw;
+                }
             }
         }
 

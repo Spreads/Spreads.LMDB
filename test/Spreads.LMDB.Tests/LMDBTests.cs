@@ -469,7 +469,7 @@ namespace Spreads.LMDB.Tests
             using (var txn = env.BeginReadOnlyTransaction())
             {
                 Assert.AreEqual(1, db.AsEnumerable<int, int>(txn).Count());
-                foreach (var kvp in db.AsEnumerable<int,int>(txn))
+                foreach (var kvp in db.AsEnumerable<int, int>(txn))
                 {
                     Console.WriteLine($"kvp: {kvp.Key} - {kvp.Value}");
                 }
@@ -477,10 +477,9 @@ namespace Spreads.LMDB.Tests
                 Assert.AreEqual(10, db.AsEnumerable<int, int>(txn, 0).Count());
                 foreach (var value in db.AsEnumerable<int, int>(txn, 0))
                 {
-                    Console.WriteLine("Key0 value: " + value);    
+                    Console.WriteLine("Key0 value: " + value);
                 }
             }
-
 
             env.Write(txn =>
             {
@@ -815,6 +814,19 @@ namespace Spreads.LMDB.Tests
             Assert.IsTrue(env3.IsOpen);
             env3.Close().Wait();
             Assert.IsFalse(env3.IsOpen);
+        }
+
+        [Test]
+        public void CouldGetOverflowPageHeaderLength()
+        {
+            var env = LMDBEnvironment.Create("./Data/oveflow_header", DbEnvironmentFlags.WriteMap);
+            env.Open();
+            Console.WriteLine("Page size: " + env.PageSize);
+            Assert.AreEqual(16, env.OverflowPageHeaderSize);
+            Console.WriteLine("Overflow header size: " + env.OverflowPageHeaderSize);
+            var stat = env.GetStat();
+            var info = env.GetEnvInfo();
+            Console.WriteLine("OFP: " + stat.ms_overflow_pages);
         }
     }
 }

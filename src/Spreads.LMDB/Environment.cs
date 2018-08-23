@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+using Spreads.Buffers;
 using Spreads.LMDB.Interop;
 using System;
 using System.Collections.Concurrent;
@@ -28,6 +29,7 @@ namespace Spreads.LMDB
         internal EnvironmentHandle _handle;
         private int _maxDbs;
         private int _pageSize;
+        private int _overflowPageHeaderSize;
 
         private readonly BlockingCollection<Delegates>
            _writeQueue = new BlockingCollection<Delegates>();
@@ -331,18 +333,20 @@ namespace Spreads.LMDB
         public Database OpenDatabase(string name, DatabaseConfig config)
         {
 #pragma warning disable 618
-            var txn = BeginTransaction();
+            using (var txn = BeginTransaction())
+            {
 #pragma warning restore 618
-            try
-            {
-                var db = new Database(name, txn._impl, config);
-                txn._impl.Commit();
-                return db;
-            }
-            catch
-            {
-                txn.Abort();
-                throw;
+                try
+                {
+                    var db = new Database(name, txn._impl, config);
+                    txn._impl.Commit();
+                    return db;
+                }
+                catch
+                {
+                    txn.Abort();
+                    throw;
+                }
             }
         }
 
@@ -460,6 +464,53 @@ namespace Spreads.LMDB
                     _pageSize = (int)stat.ms_psize;
                 }
                 return _pageSize;
+            }
+        }
+
+        public int OverflowPageHeaderSize
+        {
+            get
+            {
+                if (_overflowPageHeaderSize == 0)
+                {
+                    if (((int)_openFlags & (int)DbEnvironmentFlags.WriteMap) != 0)
+                    {
+                        _overflowPageHeaderSize = GetOverflowPageHeaderSize();
+                    }
+                    else
+                    {
+                        _overflowPageHeaderSize = -1;
+                    }
+                }
+                return _overflowPageHeaderSize;
+            }
+        }
+
+        private unsafe int GetOverflowPageHeaderSize()
+        {
+            if (((int)_openFlags & (int)DbEnvironmentFlags.WriteMap) == 0)
+            {
+                throw new InvalidOperationException("OverflowPageHeaderSize requires DbEnvironmentFlags.WriteMap flag");
+            }
+#pragma warning disable 618
+            using (var txn = BeginTransaction())
+            {
+#pragma warning restore 618
+                try
+                {
+                    var db = new Database("temp", txn._impl, new DatabaseConfig(DbFlags.Create));
+                    var bufferRef = 0L;
+                    var keyPtr = Unsafe.AsPointer(ref bufferRef);
+                    var key1 = new DirectBuffer(8, (byte*)keyPtr);
+                    var value = new DirectBuffer(PageSize * 10, (byte*)IntPtr.Zero);
+                    db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
+                    db.Dispose();
+                    return checked((int)(value.Data.ToInt64() % PageSize));
+                }
+                finally
+                {
+                    txn.Abort();
+                }
             }
         }
 
