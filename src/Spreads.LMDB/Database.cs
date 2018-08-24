@@ -20,7 +20,7 @@ namespace Spreads.LMDB
     /// </summary>
     public class Database : IDisposable
     {
-        internal readonly ObjectPool<ReadCursorHandle> ReadHandlePool =
+        internal readonly ObjectPool<ReadCursorHandle> ReadCursorHandlePool =
             new ObjectPool<ReadCursorHandle>(() => new ReadCursorHandle(), System.Environment.ProcessorCount * 16);
 
         internal uint _handle;
@@ -112,22 +112,30 @@ namespace Spreads.LMDB
 
         public ReadOnlyCursor OpenReadOnlyCursor(ReadOnlyTransaction txn)
         {
-            var rh = ReadHandlePool.Allocate();
-            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, rh));
+            var rch = ReadCursorHandlePool.Allocate();
+            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, rch));
         }
 
         /// <summary>
         /// Drops the database.
         /// </summary>
-        public Task Drop()
+        public void Drop()
         {
-            return Environment.WriteAsync(txn =>
+#pragma warning disable 618
+            using (var txn = Environment.BeginTransaction())
+#pragma warning restore 618
             {
-                NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, true));
-                txn.Commit();
-                _handle = default;
-                return null;
-            }, false, false);
+                try
+                {
+                    NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, true));
+                    txn.Commit();
+                }
+                catch
+                {
+                    txn.Abort();
+                    throw;
+                }
+            }
         }
 
         /// <summary>

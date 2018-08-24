@@ -76,7 +76,7 @@ namespace Spreads.LMDB.Tests
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
                 txn.Commit();
                 return Task.CompletedTask;
-            }, false, false);
+            }, false);
 
             await env.Close();
         }
@@ -230,7 +230,7 @@ namespace Spreads.LMDB.Tests
                 }
                 txn.Commit();
                 return null;
-            }, false, false);
+            }, false);
 
             env.Read(txn =>
             {
@@ -303,7 +303,7 @@ namespace Spreads.LMDB.Tests
 
                         txn.Commit();
                         return null;
-                    }, false, false);
+                    }, false);
                 }
             }
 

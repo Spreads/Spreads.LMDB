@@ -31,24 +31,23 @@ namespace Spreads.LMDB
         private int _pageSize;
         private int _overflowPageHeaderSize;
 
-        private readonly BlockingCollection<Delegates>
-           _writeQueue = new BlockingCollection<Delegates>();
+        private readonly BlockingCollection<Delegates> _writeQueue;
 
         private readonly TaskCompletionSource<object> _writeTaskCompletion = new TaskCompletionSource<object>();
         private readonly CancellationTokenSource _cts;
         private readonly string _directory;
         private bool _isOpen;
 
-        // private readonly ResultsObject _results = new ResultsObject();
         private uint _maxReaders;
 
-        private static ConcurrentDictionary<string, LMDBEnvironment> _openEnvs = new ConcurrentDictionary<string, LMDBEnvironment>();
+        internal readonly ConcurrentQueue<ReadTransactionHandle> ReadHandlePool = new ConcurrentQueue<ReadTransactionHandle>();
 
         // Useful for testing when simulating multiple processes in a single one
         // and not dealing with LMDB-specific multi-process issues, but instead
         // avoid the breakage from opening LMDB env twice
         // See Caveats: http://www.lmdb.tech/doc/index.html
         // Not thread-safe because it happens once per env at process start/end
+        private static ConcurrentDictionary<string, LMDBEnvironment> _openEnvs = new ConcurrentDictionary<string, LMDBEnvironment>();
 
         /// <summary>
         /// Creates a new instance of Environment.
@@ -58,10 +57,15 @@ namespace Spreads.LMDB
         /// <param name="accessMode">Unix file access privelegies (optional). Only makes sense on unix operationg systems.</param>
         public static LMDBEnvironment Create(string directory = null,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
-            UnixAccessMode accessMode = UnixAccessMode.Default)
+            UnixAccessMode accessMode = UnixAccessMode.Default,
+            bool disableAsync = false)
         {
 #pragma warning disable 618
-            openFlags = openFlags | DbEnvironmentFlags.NoTls;
+            if (!disableAsync)
+            {
+                // we need NoTLS to work well with .NET Tasks, see docs about writers that need a dedicated thread
+                openFlags = openFlags | DbEnvironmentFlags.NoTls;
+            }
 #pragma warning restore 618
 
             // this is machine-local storage for each user.
@@ -69,7 +73,7 @@ namespace Spreads.LMDB
             {
                 directory = Config.DbEnvironment.DefaultLocation;
             }
-            var env = _openEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode));
+            var env = _openEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode, disableAsync));
             if (env._openFlags != openFlags || env._accessMode != accessMode)
             {
                 throw new InvalidOperationException("Environment is already open in this process with different flags and access mode.");
@@ -80,13 +84,9 @@ namespace Spreads.LMDB
 
         private LMDBEnvironment(string directory,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
-            UnixAccessMode accessMode = UnixAccessMode.Default)
+            UnixAccessMode accessMode = UnixAccessMode.Default,
+            bool disableWriterThread = false)
         {
-            // we need NoTLS to work well with .NET Tasks, see docs about writers that need a dedicated thread
-#pragma warning disable CS0618 // Type or member is obsolete
-            openFlags = openFlags | DbEnvironmentFlags.NoTls;
-#pragma warning restore CS0618 // Type or member is obsolete
-
             if (!System.IO.Directory.Exists(directory))
             {
                 System.IO.Directory.CreateDirectory(directory);
@@ -106,62 +106,68 @@ namespace Spreads.LMDB
             // Accross processes, writes are synchronized via WriteTxnGate (TODO!)
             _cts = new CancellationTokenSource();
 
-            var threadStart = new ThreadStart(() =>
+            if (!disableWriterThread)
             {
-                while (!_writeQueue.IsCompleted)
+                _writeQueue = new BlockingCollection<Delegates>();
+                var threadStart = new ThreadStart(() =>
                 {
-                    try
+                    while (!_writeQueue.IsCompleted)
                     {
-                        // BLOCKING
-                        var delegates = _writeQueue.Take(_cts.Token);
-
-                        var transactionImpl = delegates.SkipTxnCreate
-                            ? null : TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
-
                         try
                         {
-                            // TODO for some methods such as mbd_put we should have a C method
-                            // that begins/end txn automatically
-                            // we still need to pass call to it here, but we could avoid txn creation
-                            // and two P/Invokes
+                            // BLOCKING
+                            var delegates = _writeQueue.Take(_cts.Token);
 
-                            var txn = new Transaction(transactionImpl);
+                            var transactionImpl = TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
 
-                            if (delegates.WriteFunction != null)
+                            try
                             {
-                                var res = delegates.WriteFunction(txn);
-                                delegates.Tcs?.SetResult(res);
+                                // TODO for some methods such as mbd_put we should have a C method
+                                // that begins/end txn automatically
+                                // we still need to pass call to it here, but we could avoid txn creation
+                                // and two P/Invokes
+
+                                var txn = new Transaction(transactionImpl);
+
+                                if (delegates.WriteFunction != null)
+                                {
+                                    var res = delegates.WriteFunction(txn);
+                                    delegates.Tcs?.SetResult(res);
+                                }
+                                else if (delegates.WriteAction != null)
+                                {
+                                    delegates.WriteAction(txn);
+                                    delegates.Tcs?.SetResult(null);
+                                }
+                                else
+                                {
+                                    Environment.FailFast("Wrong writer thread setup");
+                                }
                             }
-                            else if (delegates.WriteAction != null)
+                            catch (Exception e)
                             {
-                                delegates.WriteAction(txn);
-                                delegates.Tcs?.SetResult(null);
+                                delegates.Tcs?.SetException(e);
+                                transactionImpl?.Abort();
                             }
-                            else
+                            finally
                             {
-                                Environment.FailFast("Wrong writer thread setup");
+                                transactionImpl?.Dispose();
                             }
                         }
-                        catch (Exception e)
+                        catch (InvalidOperationException)
                         {
-                            delegates.Tcs?.SetException(e);
-                            transactionImpl?.Abort();
-                        }
-                        finally
-                        {
-                            transactionImpl?.Dispose();
                         }
                     }
-                    catch (InvalidOperationException) { }
-                }
-                _writeTaskCompletion.SetResult(null);
-            });
-            var writeThread = new Thread(threadStart)
-            {
-                Name = "LMDB Writer thread",
-                IsBackground = true
-            };
-            writeThread.Start();
+
+                    _writeTaskCompletion.SetResult(null);
+                });
+                var writeThread = new Thread(threadStart)
+                {
+                    Name = "LMDB Writer thread",
+                    IsBackground = true
+                };
+                writeThread.Start();
+            }
         }
 
         /// <summary>
@@ -186,29 +192,67 @@ namespace Spreads.LMDB
 
         public object Write(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
-            return Write(writeFunction, fireAndForget, false);
+            if (fireAndForget)
+            {
+                return WriteAsync(writeFunction, fireAndForget).Result;
+            }
+            else
+            {
+#pragma warning disable 618
+                using (var txn = BeginTransaction())
+#pragma warning restore 618
+                {
+                    try
+                    {
+                        var result = writeFunction(txn);
+                        txn.Commit();
+                        return result;
+                    }
+                    catch
+                    {
+                        txn.Abort();
+                        throw;
+                    }
+                }
+            }
         }
 
-        internal object Write(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
-        {
-            return WriteAsync(writeFunction, fireAndForget, skipTxnCreate).Result;
-        }
+        //internal object Write(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
+        //{
+        //    return WriteAsync(writeFunction, fireAndForget, skipTxnCreate).Result;
+        //}
 
         public void Write(Action<Transaction> writeAction, bool fireAndForget = false)
         {
-            WriteAsync(writeAction, fireAndForget).Wait();
+            if (fireAndForget)
+            {
+                WriteAsync(writeAction, true).Wait();
+            }
+            else
+            {
+#pragma warning disable 618
+                using (var txn = BeginTransaction())
+#pragma warning restore 618
+                {
+                    try
+                    {
+                        writeAction(txn);
+                        // txn.Commit();
+                    }
+                    catch
+                    {
+                        // txn.Abort();
+                        throw;
+                    }
+                }
+            }
         }
 
         /// <summary>
         /// Queue a write action and spin until it is completed unless fireAndForget is true.
         /// If fireAndForget is true then return immediately.
         /// </summary>
-        public Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool fireAndForget = false)
-        {
-            return WriteAsync(writeFunction, fireAndForget, false);
-        }
-
-        internal Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
+        internal Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
             TaskCompletionSource<object> tcs;
             if (!_writeQueue.IsAddingCompleted)
@@ -217,7 +261,6 @@ namespace Spreads.LMDB
                 var act = new Delegates
                 {
                     WriteFunction = writeFunction,
-                    SkipTxnCreate = skipTxnCreate,
                     Tcs = tcs
                 };
 
@@ -380,10 +423,19 @@ namespace Spreads.LMDB
                     GC.SuppressFinalize(this);
                 }
                 if (!_isOpen) return;
-                _writeQueue.CompleteAdding();
-                // let finish already added write tasks
-                await _writeTaskCompletion.Task;
-                Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
+                if (_writeQueue != null)
+                {
+                    _writeQueue.CompleteAdding();
+                    // let finish already added write tasks
+                    await _writeTaskCompletion.Task;
+                    Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
+                }
+
+                while (ReadHandlePool.TryDequeue(out var rh))
+                {
+                    rh.Dispose();
+                }
+                
                 _cts.Cancel();
                 // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
                 _handle.Dispose();
@@ -645,7 +697,6 @@ namespace Spreads.LMDB
         {
             public Func<Transaction, object> WriteFunction;
             public Action<Transaction> WriteAction;
-            public bool SkipTxnCreate;
             public TaskCompletionSource<object> Tcs;
         }
 

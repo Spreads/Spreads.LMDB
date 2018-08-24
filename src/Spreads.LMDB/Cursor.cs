@@ -313,7 +313,7 @@ namespace Spreads.LMDB
                 {
                     var rh = _readHandle;
                     _readHandle = null;
-                    _database.ReadHandlePool.Free(rh);
+                    _database.ReadCursorHandlePool.Free(rh);
                 }
                 else
                 {

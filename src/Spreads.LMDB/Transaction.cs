@@ -86,7 +86,6 @@ namespace Spreads.LMDB
         private static readonly ObjectPool<TransactionImpl> TxPool =
             new ObjectPool<TransactionImpl>(() => new TransactionImpl(), Environment.ProcessorCount * 16);
 
-        private static readonly ConcurrentQueue<ReadTransactionHandle> ReadHandlePool = new ConcurrentQueue<ReadTransactionHandle>();
 
         private TransactionImpl()
         {
@@ -110,7 +109,7 @@ namespace Spreads.LMDB
             var isReadOnly = (beginFlags & TransactionBeginFlags.ReadOnly) == TransactionBeginFlags.ReadOnly;
             if (isReadOnly)
             {
-                if (!ReadHandlePool.TryDequeue(out var rh))
+                if (!tx._lmdbEnvironment.ReadHandlePool.TryDequeue(out var rh))
                 {
                     rh = new ReadTransactionHandle();
                 }
@@ -163,7 +162,7 @@ namespace Spreads.LMDB
             {
                 if (disposing)
                 {
-                    if (ReadHandlePool.Count >= _lmdbEnvironment.MaxReaders - Environment.ProcessorCount)
+                    if (_lmdbEnvironment.ReadHandlePool.Count >= _lmdbEnvironment.MaxReaders - Environment.ProcessorCount)
                     {
                         _readHandle.Dispose();
                     }
@@ -172,7 +171,7 @@ namespace Spreads.LMDB
                         var rh = _readHandle;
                         _readHandle = null;
                         NativeMethods.mdb_txn_reset(rh.Handle);
-                        ReadHandlePool.Enqueue(rh);
+                        _lmdbEnvironment.ReadHandlePool.Enqueue(rh);
                     }
                 }
                 else
