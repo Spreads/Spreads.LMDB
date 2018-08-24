@@ -55,6 +55,9 @@ namespace Spreads.LMDB
         /// <param name="directory">Relative directory for storing database files.</param>
         /// <param name="openFlags">Database open options.</param>
         /// <param name="accessMode">Unix file access privelegies (optional). Only makes sense on unix operationg systems.</param>
+        /// <param name="disableAsync">Disable dedicated writer thread and NO_TLS option.
+        /// Fire-and-forget option for write transaction will throw.
+        /// .NET async cannot be used in transaction body. </param>
         public static LMDBEnvironment Create(string directory = null,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
@@ -194,7 +197,7 @@ namespace Spreads.LMDB
         {
             if (fireAndForget)
             {
-                return WriteAsync(writeFunction, fireAndForget).Result;
+                return WriteAsync(writeFunction, true).Result;
             }
             else
             {
@@ -202,17 +205,8 @@ namespace Spreads.LMDB
                 using (var txn = BeginTransaction())
 #pragma warning restore 618
                 {
-                    try
-                    {
-                        var result = writeFunction(txn);
-                        txn.Commit();
-                        return result;
-                    }
-                    catch
-                    {
-                        txn.Abort();
-                        throw;
-                    }
+                    var result = writeFunction(txn);
+                    return result;
                 }
             }
         }
@@ -234,16 +228,7 @@ namespace Spreads.LMDB
                 using (var txn = BeginTransaction())
 #pragma warning restore 618
                 {
-                    try
-                    {
-                        writeAction(txn);
-                        // txn.Commit();
-                    }
-                    catch
-                    {
-                        // txn.Abort();
-                        throw;
-                    }
+                    writeAction(txn);
                 }
             }
         }
@@ -435,7 +420,7 @@ namespace Spreads.LMDB
                 {
                     rh.Dispose();
                 }
-                
+
                 _cts.Cancel();
                 // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
                 _handle.Dispose();
