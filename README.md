@@ -3,7 +3,7 @@
 Low-level zero-overhead and the fastest LMDB .NET wrapper with some additional native 
 methods useful for [Spreads](https://github.com/Spreads/).
 
-Available on NuGet as [Spreads.LMDB](https://www.nuget.org/packages/Spreads.LMDB). (Stale, ping the author if you want the latest version published)
+Available on NuGet as [Spreads.LMDB](https://www.nuget.org/packages/Spreads.LMDB).
 
 ## Full C# `async/await` support
 
