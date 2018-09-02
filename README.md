@@ -54,6 +54,9 @@ for generic types that could be blittable depending on a concrete type. The logi
 if a type is fixed-size is in [TypeHelper<T>](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Serialization/TypeHelper.cs)
 and its `TypeHelper<T>.Size` static property must be positive.
 
+## IEnumerable support
+
+A database could be enumerated via `AsEnumerable()` methods that could return either `DirectBuffer`s or generic blittable structs.
 
 # Examples
 

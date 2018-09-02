@@ -226,5 +226,63 @@ namespace Spreads.LMDB.Tests
             envK.Close();
             Benchmark.Dump("SimpleBatchedWrite/Read 10x1M longs");
         }
+
+        [Test]
+        public void DiskSyncWriteRead()
+        {
+            var count = 5_000;
+            var rounds = 1;
+
+            var path = "./data/benchmark";
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, true);
+            }
+
+            var dirS = Path.Combine(path, "Spreads");
+            var dirK = Path.Combine(path, "KdSoft");
+            Directory.CreateDirectory(dirS);
+            Directory.CreateDirectory(dirK);
+
+            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoMetaSync,
+                disableAsync: true);
+            envS.MaxDatabases = 10;
+            envS.MapSize = 16 * 1024 * 1024;
+            envS.Open();
+            var dbS = envS.OpenDatabase("SimpleWrite", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
+
+            for (int r = 0; r < rounds; r++)
+            {
+                using (Benchmark.Run("Spreads Write", count * 1_000_000, true))
+                {
+                    for (long i = r * count; i < (r + 1) * count; i++)
+                    {
+                        using (var tx = envS.BeginTransaction())
+                        {
+                            dbS.Put(tx, i, i, TransactionPutOptions.AppendData);
+                            tx.Commit();
+                        }
+                    }
+                }
+
+                using (Benchmark.Run("Spreads Read", count, true))
+                {
+                    for (long i = r * count; i < (r + 1) * count; i++)
+                    {
+                        using (var tx = envS.BeginReadOnlyTransaction())
+                        {
+                            dbS.TryGet(tx, ref i, out long val);
+                            if (val != i)
+                            {
+                                Assert.Fail();
+                            }
+                        }
+                    }
+                }
+            }
+
+            envS.Close();
+            Benchmark.Dump("Writes in single OPS");
+        }
     }
 }

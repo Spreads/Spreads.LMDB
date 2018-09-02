@@ -224,6 +224,9 @@ namespace Spreads.LMDB.Interop
         public static extern int sdb_cursor_get_gt_dup(IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_set_dupsort_as_uint128(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_set_dupsort_as_uint96(IntPtr txn, uint dbi);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
@@ -231,6 +234,9 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_set_dupsort_as_uint64(IntPtr txn, uint dbi);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_set_dupsort_as_uint64x64(IntPtr txn, uint dbi);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_set_dupsort_as_uint48(IntPtr txn, uint dbi);
@@ -243,6 +249,22 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_put(IntPtr env, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_find_lt_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_find_le_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_find_eq_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_find_ge_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int sdb_find_gt_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
+
     }
 
 #pragma warning restore IDE1006 // Naming Styles

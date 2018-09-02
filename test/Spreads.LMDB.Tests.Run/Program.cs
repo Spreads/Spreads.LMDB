@@ -1,7 +1,6 @@
-﻿using System;
+﻿using Spreads.Utils;
+using System;
 using System.Diagnostics;
-using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Spreads.LMDB.Tests.Run
@@ -26,7 +25,9 @@ namespace Spreads.LMDB.Tests.Run
             Trace.Listeners.Add(new ConsoleListener());
 
             var tests = new SpreadsMethodsTests();
-            tests.CouldFindDup();
+
+            tests.CouldFindDupWideKey();
+            
             Console.WriteLine("Finished");
             Console.ReadLine();
             //try

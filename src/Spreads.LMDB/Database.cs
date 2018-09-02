@@ -47,7 +47,15 @@ namespace Spreads.LMDB
             }
             if (_config.DupSortPrefix > 0)
             {
-                if (_config.DupSortPrefix == 96)
+                if (_config.DupSortPrefix == 64 * 64)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint64x64(txn._writeHandle, handle));
+                }
+                else if (_config.DupSortPrefix == 128)
+                {
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint128(txn._writeHandle, handle));
+                }
+                else if (_config.DupSortPrefix == 96)
                 {
                     NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint96(txn._writeHandle, handle));
                 }
@@ -250,7 +258,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Task PutAsync<TKey, TValue>(TKey key, TValue value,
+        public Task PutAsync<TKey, TValue>(TKey key, TValue value,
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
@@ -422,6 +430,158 @@ namespace Spreads.LMDB
             value = default;
             return false;
         }
+
+        #region sdb_find
+
+        // TODO nodup tryfind
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value)
+            where TKey : struct where TValue : struct
+        {
+            var keyPtr = AsPointer(ref key);
+            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+
+            var valuePtr = AsPointer(ref value);
+            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+
+            var res = TryFindDup(direction, ref key1, ref value1);
+            if (res)
+            {
+                key = ReadUnaligned<TKey>((byte*)key1.Data);
+                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                return true;
+            }
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryFindDup(Lookup direction, ref DirectBuffer key, ref DirectBuffer value)
+        {
+            IntPtr rthPtr = IntPtr.Zero;
+            IntPtr rchPtr = IntPtr.Zero;
+
+            if (!_environment.ReadHandlePool.TryDequeue(out var rth))
+            {
+                rth = new ReadTransactionHandle();
+            }
+            if (!rth.IsInvalid)
+            {
+                rthPtr = rth.Handle;
+            }
+
+            var rch = ReadCursorHandlePool.Allocate();
+            if (!rth.IsInvalid)
+            {
+                rchPtr = rch.Handle;
+            }
+
+            int res = 0;
+
+            switch (direction)
+            {
+                case Lookup.LT:
+                    res = NativeMethods.AssertRead(
+                         NativeMethods.sdb_find_lt_dup(
+                             _environment._handle.Handle,
+                             _handle,
+                             ref rthPtr,
+                             ref rchPtr,
+                             ref key,
+                             ref value)
+                        );
+                    break;
+
+                case Lookup.LE:
+                    res = NativeMethods.AssertRead(
+                        NativeMethods.sdb_find_le_dup(
+                            _environment._handle.Handle,
+                            _handle,
+                            ref rthPtr,
+                            ref rchPtr,
+                            ref key,
+                            ref value)
+                        );
+                    break;
+
+                case Lookup.EQ:
+                    res = NativeMethods.AssertRead(
+                        NativeMethods.sdb_find_eq_dup(
+                            _environment._handle.Handle,
+                            _handle,
+                            ref rthPtr,
+                            ref rchPtr,
+                            ref key,
+                            ref value)
+                        );
+                    break;
+
+                case Lookup.GE:
+                    res = NativeMethods.AssertRead(
+                        NativeMethods.sdb_find_ge_dup(
+                            _environment._handle.Handle,
+                            _handle,
+                            ref rthPtr, 
+                            ref rchPtr, 
+                            ref key, 
+                            ref value)
+                        );
+                    break;
+
+                case Lookup.GT:
+                    res = NativeMethods.AssertRead(
+                        NativeMethods.sdb_find_gt_dup(
+                            _environment._handle.Handle,
+                            _handle,
+                            ref rthPtr,
+                            ref rchPtr,
+                            ref key,
+                            ref value)
+                        );
+                    break;
+
+            }
+
+            {
+                if (rth.IsInvalid)
+                {
+                    if (rthPtr == IntPtr.Zero)
+                    {
+                        throw new ApplicationException("Wrong native find method implementation: txn");
+                    }
+
+                    rth.SetNewHandle(rthPtr);
+                }
+
+                if (_environment.ReadHandlePool.Count >= _environment.MaxReaders - System.Environment.ProcessorCount)
+                {
+                    rth.Dispose();
+                }
+                else
+                {
+                    // it is returned already reset
+                    _environment.ReadHandlePool.Enqueue(rth);
+                }
+            }
+
+            {
+                if (rch.IsInvalid)
+                {
+                    if (rchPtr == IntPtr.Zero)
+                    {
+                        throw new ApplicationException("Wrong native find method implementation: cursor");
+                    }
+
+                    rch.SetNewHandle(rchPtr);
+                }
+
+                ReadCursorHandlePool.Free(rch);
+            }
+
+            return res != NativeMethods.MDB_NOTFOUND;
+        }
+
+        #endregion sdb_find
 
         /// <summary>
         /// Iterate over db values.

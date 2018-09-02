@@ -5,14 +5,11 @@
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Spreads.LMDB
 {
-    // NB: wrappers are only exposed from inside using(...){...} therefore they are not disposable, we always dispose inner TransactionImpl
-
     public readonly struct Transaction : IDisposable
     {
         internal readonly TransactionImpl _impl;
@@ -89,7 +86,6 @@ namespace Spreads.LMDB
 
         private static readonly ObjectPool<TransactionImpl> TxPool =
             new ObjectPool<TransactionImpl>(() => new TransactionImpl(), Environment.ProcessorCount * 16);
-
 
         private TransactionImpl()
         {
@@ -293,12 +289,11 @@ namespace Spreads.LMDB
             {
                 ThrowTxReadOnlyOnCommit();
             }
-            
+
             NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(_writeHandle));
             _state = TransactionState.Commited;
         }
 
-        
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowTxNotActiveOnCommit()
         {
@@ -310,7 +305,6 @@ namespace Spreads.LMDB
         {
             throw new InvalidOperationException("Cannot commit readonly transaction");
         }
-
 
         public void Abort()
         {
