@@ -28,6 +28,7 @@ namespace Spreads.LMDB
         /// All cursors opened within the transaction will be closed by this call.
         /// The cursors and transaction handle will be freed and must not be used again after this call.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Commit()
         {
             _impl.Commit();
@@ -38,11 +39,13 @@ namespace Spreads.LMDB
         /// All cursors opened within the transaction will be closed by this call.
         /// The cursors and transaction handle will be freed and must not be used again after this call.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Abort()
         {
             _impl.Abort();
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
             _impl.Dispose();
@@ -63,6 +66,7 @@ namespace Spreads.LMDB
             _impl = txn;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
             _impl.Dispose();
@@ -265,28 +269,48 @@ namespace Spreads.LMDB
         public bool IsReadOnly
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return _readHandle != null; }
+            get => _readHandle != null;
         }
 
         /// <summary>
         /// Current transaction state.
         /// </summary>
-        internal TransactionState State => _state;
+        internal TransactionState State
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _state;
+        }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Commit()
         {
             if (_state != TransactionState.Active)
             {
-                throw new InvalidOperationException("Transaction state is not active for commit");
-            }
-            if (IsReadOnly)
-            {
-                throw new InvalidOperationException("Cannot commit readonly transaction");
+                ThrowTxNotActiveOnCommit();
             }
 
+            if (IsReadOnly)
+            {
+                ThrowTxReadOnlyOnCommit();
+            }
+            
             NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(_writeHandle));
             _state = TransactionState.Commited;
         }
+
+        
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowTxNotActiveOnCommit()
+        {
+            throw new InvalidOperationException("Transaction state is not active for commit");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowTxReadOnlyOnCommit()
+        {
+            throw new InvalidOperationException("Cannot commit readonly transaction");
+        }
+
 
         public void Abort()
         {
