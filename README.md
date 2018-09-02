@@ -1,6 +1,6 @@
 # Spreads.LMDB
 
-Low-level zero-overhead and the fastest LMDB .NET wrapper with some additional native 
+Low-level zero-overhead and [the fastest](https://github.com/Spreads/Spreads.LMDB/commit/4085dde649ef9ebb64310f2627299762dd62d5ce) LMDB .NET wrapper with some additional native 
 methods useful for [Spreads](https://github.com/Spreads/).
 
 Available on NuGet as [Spreads.LMDB](https://www.nuget.org/packages/Spreads.LMDB).
