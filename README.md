@@ -17,13 +17,30 @@ attribute for environments:
 
 > A thread may use parallel read-only transactions. A read-only transaction may span threads if the user synchronizes its use. Applications that multiplex many user threads over individual OS threads need this option. Such an application must also serialize the write transactions in an OS thread, since LMDB's write locking is unaware of the user threads.
 
-Spreads.LMDB automatically takes care or read-only transactions and cursors renewal 
+Async support is enabled by default, but could be switched off 
+via `LMDBEnvironment.Create(..., disableAsync: true);` if not used.
+
+## Read-only transaction and cursor renewal
+
+Spreads.LMDB automatically takes care of read-only transaction and cursor renewals 
 if they are properly disposed as .NET objects. It does not allocate those 
 objects in steady state (uses internal pools).
 
+## Working with memory safely
+
 **Warning!** This library exposes `MDB_val` directly as `DirectBuffer` struct, the struct *MUST ONLY* be read when inside a transaction
-(or when it points to an overflow page - but that is a undocumented hack working so far). For writes, 
-the memory behind Span *MUST BE pinned*.
+(or when it points to an overflow page - but that is an undocumented hack working so far). For writes, 
+the memory behind `DirectBuffer` *MUST BE pinned*. 
+
+`DirectBuffer.Span` property allows to access `MDB_val` as `Span<byte>`. `DirectBuffer` can be easily constructed from `Span<byte>`, 
+but the span must be pinned as well if it is backed by `byte[]`.
+
+[`DirectBuffer`](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Buffers/DirectBuffer.cs) has many methods
+ to read/write primitive and generic blittable struct values from any offset, 
+e.g. `directBufferInstance.Read<ulong>(8)` to read `ulong` from offset `8`. By default
+it checks bounds, and LMDB call via P/Invoke takes much longer so there is no reason to switch the 
+bounds checks off, but you can still do so e.g. if you read separate bytes of large values
+ a lot (e.g. via indexer `directBufferInstance[offset]` that returns a single byte at `offset`).
 
 ## Generic key/values support
 
@@ -38,20 +55,23 @@ if a type is fixed-size is in [TypeHelper<T>](https://github.com/Spreads/Spreads
 and its `TypeHelper<T>.Size` static property must be positive.
 
 
-# Example
+# Examples
 
-There are a couple of tests that show how to use the code.
+Tests show how to use the code.
 
-# Limitations & status
+# Status & limitations
 
-This is being deployed and tested in production. I needed a zero-overhead but convenient wrapper,
-not raw P/Invoke. [`Span<T>` et al.](https://msdn.microsoft.com/en-us/magazine/mt814808.aspx) are perfect
-for this!
+This library is being deployed and tested in production and is went through many performance 
+and correctness stress tests.
 
-The project has required binaries in `lib` folder - they are native dlls compressed with 
+The project has required native binaries and source in `lib` folder. 
+Binaries are native shared libraries compressed with 
 `deflate` and embedded into the package dll as resources (this often simplifies deployment). 
-Source code maybe added later if someone needs it. Should work with original native binaries as well
-if not using two `TryFind` helper methods.
+The library works with original native binaries as well if not using two `TryFind` helper methods.
+
+The library does not support nested transactions yet - only because we do not use them currently. 
+They will be added as soon as we find a real-world compelling case for them. 
+
 
 # Contributing
 

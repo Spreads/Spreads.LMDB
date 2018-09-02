@@ -122,6 +122,9 @@ namespace Spreads.LMDB.Tests
         [Test]
         public unsafe void SimpleWriteReadBatchedBenchmark()
         {
+#pragma warning disable 618
+            Settings.DoAdditionalCorrectnessChecks = false;
+#pragma warning restore 618
             var count = 1_000_000;
             var rounds = 10;
 
