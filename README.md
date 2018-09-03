@@ -56,7 +56,8 @@ and its `TypeHelper<T>.Size` static property must be positive.
 
 ## IEnumerable support
 
-A database could be enumerated via `AsEnumerable()` methods that could return either `DirectBuffer`s or generic blittable structs.
+A database or duplicate values of a key in a single dupsorted database could be enumerated via `dataVaseInstance.AsEnumerable([several overloads])` methods that could return 
+either `DirectBuffer`s or generic blittable structs.
 
 # Examples
 
@@ -65,9 +66,9 @@ Tests show how to use the code.
 # Status & limitations
 
 This library is being deployed and tested in production and is went through many performance 
-and correctness stress tests.
+and correctness stress tests as a part of a larger workload.
 
-The project has required native binaries and source in `lib` folder. 
+The project has required native binaries and source in [`lib`](https://github.com/Spreads/Spreads.LMDB/tree/master/lib) folder. 
 Binaries are native shared libraries compressed with 
 `deflate` and embedded into the package dll as resources (this often simplifies deployment). 
 The library works with original native binaries as well if not using two `TryFind` helper methods.

@@ -1,6 +1,0 @@
-Currently builds on Windows.
-1. In folder libspreadsdb\src\libspreadsdb change line 30 in Makefile to `all: $(SHARED_W)` (Windows) or `all: $(SHARED_L)` (Linux). Works well on WSL.
-2. Run make (mingw32-make on Windows MinGW) in folder libspreadsdb\src\libspreadsdb. 
-3. Run compress.bat.
-
-Compress.bat just compresses native dll with raw deflate. It also renames `.so.compressed` to just `.compressed` for Linux case because .NET Core has problems with `.so` extension. Compressed native libraries are packed as resource and then loaded using a Bootstrapper utility from Spreads.Core.
