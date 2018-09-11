@@ -1,6 +1,7 @@
 ﻿using Spreads.Utils;
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Spreads.LMDB.Tests.Run
@@ -20,7 +21,47 @@ namespace Spreads.LMDB.Tests.Run
 
     internal class Program
     {
-        private static async Task Main(string[] args)
+        private static void Main(string[] args)
+        {
+            const string lmdbPath = "lmdbDatabase";
+            const int hashTablesCount = 50;
+            if (Directory.Exists(lmdbPath))
+                Directory.Delete(lmdbPath, true);
+            Directory.CreateDirectory(lmdbPath);
+            using (var environment = LMDBEnvironment.Create(lmdbPath, DbEnvironmentFlags.None))
+            {
+                environment.MapSize = (1024L * 1024L * 1024L * 10L); // 10 GB
+                environment.MaxDatabases = hashTablesCount + 2;
+                environment.MaxReaders = 1000;
+                environment.Open();
+
+                // Open all database to make sure they exists
+                // using (var tx = environment.BeginTransaction())
+                {
+                    var configuration = new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey);
+
+                    var tracksDatabase = environment.OpenDatabase("tracks", configuration);
+                    var subFingerprintsDatabase = environment.OpenDatabase("subFingerprints", configuration);
+
+                    var hashTables = new Database[hashTablesCount];
+                    var hashTableConfig = new DatabaseConfig(
+                        DbFlags.Create
+                        | DbFlags.IntegerKey
+                        | DbFlags.DuplicatesSort
+                        | DbFlags.DuplicatesFixed
+                        | DbFlags.IntegerDuplicates
+                    );
+                    for (int i = 0; i < hashTablesCount; i++)
+                    {
+                        hashTables[i] = environment.OpenDatabase($"HashTable{i}", hashTableConfig);
+                    }
+
+                    // tx.Commit();
+                }
+            }
+        }
+
+        private static async Task Main2(string[] args)
         {
             Trace.Listeners.Add(new ConsoleListener());
 

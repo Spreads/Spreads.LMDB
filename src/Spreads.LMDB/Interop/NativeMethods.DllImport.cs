@@ -5,6 +5,7 @@
 using Spreads.Buffers;
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Spreads.Utils.Bootstrap;
 
@@ -17,6 +18,8 @@ namespace Spreads.LMDB.Interop
     [System.Security.SuppressUnmanagedCodeSecurity]
     internal static partial class NativeMethods
     {
+        private static readonly bool UseCalli = IntPtr.Size == 8; // LMDB won't work on x86, so this means true
+
         static NativeMethods()
         {
             // Ensure Bootstrapper is initialized and native libraries are loaded
@@ -27,6 +30,9 @@ namespace Spreads.LMDB.Interop
                 (lib) =>
                 {
                     //Environment.FailFast(lib.Path);
+                    mdb_get_ptr = lib.GetFunctionPtr("mdb_get");
+
+                    mdb_put_ptr = lib.GetFunctionPtr("mdb_put");
 
                     Debug.WriteLine("Native post-copy");
                 },
@@ -149,8 +155,26 @@ namespace Spreads.LMDB.Interop
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_env_sync(EnvironmentHandle env, bool force);
 
-        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_get(IntPtr txn, uint dbi, ref DirectBuffer key, out DirectBuffer data);
+        public static IntPtr mdb_get_ptr;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe int mdb_get(IntPtr txn, uint dbi, ref DirectBuffer key, out DirectBuffer data)
+        {
+            if (UseCalli)
+            {
+                var keyPtr = Unsafe.AsPointer(ref key);
+                data = default;
+                var valuePtr = Unsafe.AsPointer(ref data);
+                return UnsafeEx.CalliIntPtrUintPtrPtr((void*) txn, dbi, keyPtr, valuePtr, mdb_get_ptr);
+            }
+
+            return mdb_get_native(txn, dbi, ref key, out data);
+        }
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "mdb_get")]
+        public static extern int mdb_get_native(IntPtr txn, uint dbi, ref DirectBuffer key, out DirectBuffer data);
+
+        public static IntPtr mdb_put_ptr;
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_put(IntPtr txn, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);

@@ -7,6 +7,7 @@ using NUnit.Framework;
 using Spreads.Utils;
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Spreads.LMDB.Tests

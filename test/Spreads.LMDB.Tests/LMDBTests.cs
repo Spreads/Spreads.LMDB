@@ -8,6 +8,7 @@ using Spreads.Serialization;
 using Spreads.Utils;
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -415,24 +416,9 @@ namespace Spreads.LMDB.Tests
                     {
                         Console.WriteLine(e.ToString());
                     }
-                    //await env.WriteAsync(txn =>
-                    //{
-                    //    valueHolder[0] = i;
-                    //    var key = ((Memory<int>)keyHolder).AsMDBValUnsafe();
-                    //    var value = ((Memory<int>)valueHolder).AsMDBValUnsafe();
-
-                    //    db.Append(txn, ref key, ref value, true);
-
-                    //    //using (var cursor = db.OpenCursor(txn))
-                    //    //{
-                    //    //    cursor.Append(ref key, ref value, true);
-                    //    //}
-
-                    //    txn.Commit();
-                    //    return null;
-                    //});
                 }
             }
+
             handle.Dispose();
 
             Benchmark.Dump();
@@ -781,6 +767,7 @@ namespace Spreads.LMDB.Tests
                 Console.WriteLine("COUNT: " + cnt);
             }
 
+            
             Console.WriteLine("ACTUAL SUM: " + sum);
             Console.WriteLine("CALCULATED SUM: " + counts.Sum());
             Assert.AreEqual(counts.Sum(), sum);
