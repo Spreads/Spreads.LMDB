@@ -8,7 +8,6 @@ using Spreads.Serialization;
 using Spreads.Utils;
 using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -205,6 +204,42 @@ namespace Spreads.LMDB.Tests
 
                 txn.Commit();
             });
+
+            env.Close().Wait();
+        }
+
+        [Test, Explicit("long runnning")]
+        public unsafe void CouldOpenHugeEnv()
+        {
+            var env = LMDBEnvironment.Create("F:/tmp/TestData/HugeEnv", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            env.MapSize = 10 * 1024 * 1024 * 1024L;
+            env.Open();
+
+            var db = env.OpenDatabase("db_reserve", new DatabaseConfig(DbFlags.Create));
+            var keyBytes = new byte[] { 1, 2, 3, 4 };
+
+            {
+                env.Write(txn =>
+                {
+                    // var db2 = new Database("db_reserve", txn._impl, new DatabaseConfig(DbFlags.Create));
+
+                    //var addr = 0L;
+                    //var c = db.OpenCursor(txn);
+                    //for (int i = 0; i < 50; i++)
+                    //{
+                    //    keyBytes[0] = (byte)i;
+
+                    //    fixed (byte* keyPtr = &keyBytes[0])
+                    //    {
+                    //        var key = new DirectBuffer(4, keyPtr);
+                    //        var value = new DirectBuffer(2000_000_000, keyPtr);
+                    //        db.Put(txn, ref key, ref value, TransactionPutOptions.ReserveSpace);
+                    //    }
+                    //}
+                    //c.Dispose();
+                    txn.Commit();
+                }, false);
+            }
 
             env.Close().Wait();
         }
@@ -652,7 +687,7 @@ namespace Spreads.LMDB.Tests
 
                                     counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
 
-                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    changedPointers[value.ReadInt64(0)] = DbSafePtr(value);
                                     cnt++;
                                 }
                             }
@@ -670,7 +705,7 @@ namespace Spreads.LMDB.Tests
                                 if (db.TryGet(txn, ref key1, out value))
                                 {
                                     counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
-                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    changedPointers[value.ReadInt64(0)] = DbSafePtr(value);
                                     cnt++;
                                 }
                                 else
@@ -707,7 +742,7 @@ namespace Spreads.LMDB.Tests
                                         Assert.Fail($"Wrong keys: {key.ReadInt32(0)} vs {value.ReadInt64(0)}");
                                     }
                                     counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
-                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    changedPointers[value.ReadInt64(0)] = DbSafePtr(value);
                                     cnt++;
                                 }
                             }
@@ -725,7 +760,7 @@ namespace Spreads.LMDB.Tests
                                 if (db.TryGet(txn, ref key1, out value))
                                 {
                                     counts[value.ReadInt64(0)] = value.InterlockedCompareExchangeInt64(8, 1, 0);
-                                    changedPointers[value.ReadInt64(0)] = value.Data;
+                                    changedPointers[value.ReadInt64(0)] = DbSafePtr(value);
                                     cnt++;
                                 }
                                 else
@@ -754,12 +789,12 @@ namespace Spreads.LMDB.Tests
                 if (c.TryGet(ref key, ref value, CursorGetOption.First))
                 {
                     sum += value.ReadInt64(8);
-                    finalPointers[value.ReadInt64(0)] = value.Data;
+                    finalPointers[value.ReadInt64(0)] = DbSafePtr(value);
                     cnt++;
                     while (c.TryGet(ref key, ref value, CursorGetOption.Next))
                     {
                         sum += value.ReadInt64(8);
-                        finalPointers[value.ReadInt64(0)] = value.Data;
+                        finalPointers[value.ReadInt64(0)] = DbSafePtr(value);
                         cnt++;
                     }
                 }
@@ -767,7 +802,6 @@ namespace Spreads.LMDB.Tests
                 Console.WriteLine("COUNT: " + cnt);
             }
 
-            
             Console.WriteLine("ACTUAL SUM: " + sum);
             Console.WriteLine("CALCULATED SUM: " + counts.Sum());
             Assert.AreEqual(counts.Sum(), sum);
@@ -814,6 +848,11 @@ namespace Spreads.LMDB.Tests
             var stat = env.GetStat();
             var info = env.GetEnvInfo();
             Console.WriteLine("OFP: " + stat.ms_overflow_pages);
+        }
+
+        private static unsafe IntPtr DbSafePtr(DirectBuffer db)
+        {
+            return (IntPtr) db.Data;
         }
     }
 }

@@ -18,7 +18,7 @@ namespace Spreads.LMDB
     /// <summary>
     /// Database.
     /// </summary>
-    public class Database : IDisposable
+    public unsafe class Database : IDisposable
     {
         internal readonly ObjectPool<ReadCursorHandle> ReadCursorHandlePool =
             new ObjectPool<ReadCursorHandle>(() => new ReadCursorHandle(), System.Environment.ProcessorCount * 16);
@@ -330,19 +330,22 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet(Transaction txn, ref DirectBuffer key, out DirectBuffer value)
         {
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle, ref key, out value));
+            var keyPtr = AsPointer(ref key);
+            value = default;
+            var valuePtr = AsPointer(ref value);
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get((void*)txn._impl._writeHandle, _handle, keyPtr, valuePtr));
             return res != NativeMethods.MDB_NOTFOUND;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryGet<T>(Transaction txn, ref DirectBuffer key, out T value)
+        public bool TryGet<T>(Transaction txn, ref DirectBuffer key, out T value)
              where T : struct
         {
             TypeHelper<T>.EnsureFixedSize();
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle, ref key, out DirectBuffer value1));
-            if (res != NativeMethods.MDB_NOTFOUND)
+
+            if (TryGet(txn, ref key, out var valueDb))
             {
-                value = ReadUnaligned<T>((byte*)value1.Data);
+                value = ReadUnaligned<T>((byte*)valueDb.Data);
                 return true;
             }
 
@@ -351,51 +354,44 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryGet<T>(Transaction txn, ref T key, out DirectBuffer value)
+        public bool TryGet<T>(Transaction txn, ref T key, out DirectBuffer value)
             where T : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle, ref key1, out value));
-            return res != NativeMethods.MDB_NOTFOUND;
+            var keyDb = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
+
+            return TryGet(txn, ref keyDb, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryGet<TKey, TValue>(Transaction txn, ref TKey key, out TValue value)
+        public bool TryGet<TKey, TValue>(Transaction txn, ref TKey key, out TValue value)
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            TypeHelper<TValue>.EnsureFixedSize();
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._writeHandle, _handle,
-                ref key1, out DirectBuffer value1));
-            if (res != NativeMethods.MDB_NOTFOUND)
-            {
-                value = ReadUnaligned<TValue>((byte*)value1.Data);
-                return true;
-            }
+            var keyDb = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
 
-            value = default;
-            return false;
+            return TryGet(txn, ref keyDb, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet(ReadOnlyTransaction txn, ref DirectBuffer key, out DirectBuffer value)
         {
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle, ref key, out value));
+            var keyPtr = AsPointer(ref key);
+            value = default;
+            var valuePtr = AsPointer(ref value);
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get((void*)txn._impl._readHandle.Handle, _handle, keyPtr, valuePtr));
             return res != NativeMethods.MDB_NOTFOUND;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryGet<T>(ReadOnlyTransaction txn, ref DirectBuffer key, out T value)
+        public bool TryGet<T>(ReadOnlyTransaction txn, ref DirectBuffer key, out T value)
             where T : struct
         {
             TypeHelper<T>.EnsureFixedSize();
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle,
-                ref key, out DirectBuffer value1));
-            if (res != NativeMethods.MDB_NOTFOUND)
+
+            if (TryGet(txn, ref key, out var valueDb))
             {
-                value = ReadUnaligned<T>((byte*)value1.Data);
+                value = ReadUnaligned<T>((byte*)valueDb.Data);
                 return true;
             }
 
@@ -404,31 +400,22 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryGet<TKey>(ReadOnlyTransaction txn, ref TKey key, out DirectBuffer value)
-            where TKey : struct
+        public bool TryGet<T>(ReadOnlyTransaction txn, ref T key, out DirectBuffer value)
+            where T : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle, ref key1, out value));
-            return res != NativeMethods.MDB_NOTFOUND;
+            var keyDb = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
+
+            return TryGet(txn, ref keyDb, out value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryGet<TKey, TValue>(ReadOnlyTransaction txn, ref TKey key, out TValue value)
+        public bool TryGet<TKey, TValue>(ReadOnlyTransaction txn, ref TKey key, out TValue value)
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            TypeHelper<TValue>.EnsureFixedSize();
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get(txn._impl._readHandle.Handle, _handle, ref key1, out DirectBuffer value1));
-            if (res != NativeMethods.MDB_NOTFOUND)
-            {
-                value = ReadUnaligned<TValue>((byte*)value1.Data);
-                return true;
-            }
-
-            value = default;
-            return false;
+            var keyDb = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            return TryGet(txn, ref keyDb, out value);
         }
 
         #region sdb_find
@@ -436,7 +423,7 @@ namespace Spreads.LMDB
         // TODO nodup tryfind
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value)
+        public bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value)
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
@@ -521,9 +508,9 @@ namespace Spreads.LMDB
                         NativeMethods.sdb_find_ge_dup(
                             _environment._handle.Handle,
                             _handle,
-                            ref rthPtr, 
-                            ref rchPtr, 
-                            ref key, 
+                            ref rthPtr,
+                            ref rchPtr,
+                            ref key,
                             ref value)
                         );
                     break;
@@ -539,7 +526,6 @@ namespace Spreads.LMDB
                             ref value)
                         );
                     break;
-
             }
 
             {

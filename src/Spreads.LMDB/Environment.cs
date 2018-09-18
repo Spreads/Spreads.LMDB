@@ -547,7 +547,7 @@ namespace Spreads.LMDB
                     var value = new DirectBuffer(PageSize * 10, (byte*)IntPtr.Zero);
                     db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                     db.Dispose();
-                    return checked((int)(value.Data.ToInt64() % PageSize));
+                    return checked((int)(((IntPtr)value.Data).ToInt64() % PageSize));
                 }
                 finally
                 {
