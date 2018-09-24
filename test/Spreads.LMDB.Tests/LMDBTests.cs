@@ -212,7 +212,7 @@ namespace Spreads.LMDB.Tests
         public unsafe void CouldOpenHugeEnv()
         {
             var env = LMDBEnvironment.Create("F:/tmp/TestData/HugeEnv", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
-            env.MapSize = 10 * 1024 * 1024 * 1024L;
+            env.MapSize = 2 * 1024L * 1024 * 1024 * 1024L;
             env.Open();
 
             var db = env.OpenDatabase("db_reserve", new DatabaseConfig(DbFlags.Create));
