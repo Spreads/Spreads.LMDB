@@ -430,6 +430,7 @@ namespace Spreads.LMDB
                 // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
                 _handle.Dispose();
                 _isOpen = false;
+                _openEnvs.TryRemove(_directory, out _);
             }
         }
 
@@ -490,7 +491,9 @@ namespace Spreads.LMDB
             {
                 if (_isOpen)
                 {
-                    throw new InvalidOperationException("Can't change MapSize of opened environment");
+                    // during tests we return same env instance, ignore setting the same size to it
+                    if (value == MapSize) { return; }
+                    throw new InvalidOperationException("Can't change MapSize of an opened environment");
                 }
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_set_mapsize(_handle, (IntPtr)value));
             }
@@ -589,6 +592,7 @@ namespace Spreads.LMDB
             {
                 if (_isOpen)
                 {
+                    if (value == MaxReaders) { return; }
                     throw new InvalidOperationException("Can't change MaxReaders of opened environment");
                 }
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_set_maxreaders(_handle, (uint)value));
@@ -610,9 +614,9 @@ namespace Spreads.LMDB
             {
                 if (_isOpen)
                 {
+                    if (value == _maxDbs) return;
                     throw new InvalidOperationException("Can't change MaxDatabases of opened environment");
                 }
-                if (value == _maxDbs) return;
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_set_maxdbs(_handle, (uint)value));
                 _maxDbs = value;
             }
@@ -689,58 +693,5 @@ namespace Spreads.LMDB
             public Action<Transaction> WriteAction;
             public TaskCompletionSource<object> Tcs;
         }
-
-        //internal struct ValueTaskCompleteionSource : IValueTaskSource<object>
-        //{
-        //    // null is valid
-        //    private Opt<object> _value;
-        //    private Action<object> _continuation;
-
-        //    private Action<object> GetCont()
-        //    {
-        //        return _continuation;
-        //    }
-
-        //    public void SetValue(object value)
-        //    {
-        //        // _value = Opt.Present(value);
-        //        var c = _continuation;
-        //        _continuation = null;
-        //        SpreadsThreadPool.Default.UnsafeQueueCompletableItem(_continuation, value, true);
-        //    }
-
-        //    public object GetResult(short token)
-        //    {
-        //        if (_value.IsMissing)
-        //        {
-        //            throw new InvalidOperationException("Value is missing");
-        //        }
-        //        return _value.Present;
-        //    }
-
-        //    public ValueTaskSourceStatus GetStatus(short token)
-        //    {
-        //        if (_value.IsPresent)
-        //        {
-        //            return ValueTaskSourceStatus.Succeeded;
-        //        }
-
-        //        return ValueTaskSourceStatus.Pending;
-        //    }
-
-        //    public void OnCompleted(Action<object> continuation, object state, short token, ValueTaskSourceOnCompletedFlags flags)
-        //    {
-        //        if (_value.IsPresent)
-        //        {
-        //            _continuation = _continuation;
-        //        }
-        //        else
-        //        {
-        //            _continuation = continuation;
-        //        }
-
-        //        throw new NotImplementedException();
-        //    }
-        //}
     }
 }

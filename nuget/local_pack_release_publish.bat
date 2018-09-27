@@ -15,4 +15,6 @@ echo build: "%build%"
 dotnet restore ..\src\Spreads.LMDB
 dotnet pack ..\src\Spreads.LMDB -c RELEASE -o C:\tools\LocalNuget --version-suffix "%build%"
 
+@for %%f in (C:\tools\LocalNuget\Spreads.LMDB*"%build%".nupkg) do nuget push %%f -source https://www.nuget.org/api/v2/package
+
 pause
