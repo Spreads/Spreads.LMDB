@@ -68,6 +68,8 @@ namespace Spreads.LMDB
         {
             _impl.Dispose();
         }
+
+        // TODO Manual Reset/Renew
     }
 
     internal class TransactionImpl : IDisposable
@@ -162,14 +164,14 @@ namespace Spreads.LMDB
             {
                 if (disposing)
                 {
-                    if (_lmdbEnvironment.ReadHandlePool.Count >= _lmdbEnvironment.MaxReaders - Environment.ProcessorCount)
+                    var rh = _readHandle;
+                    _readHandle = null;
+                    if (_lmdbEnvironment._disableReadTxnAutoreset || _lmdbEnvironment.ReadHandlePool.Count >= _lmdbEnvironment.MaxReaders - Environment.ProcessorCount)
                     {
-                        _readHandle.Dispose();
+                        rh.Dispose();
                     }
                     else
-                    {
-                        var rh = _readHandle;
-                        _readHandle = null;
+                    {                        
                         NativeMethods.mdb_txn_reset(rh.Handle);
                         _lmdbEnvironment.ReadHandlePool.Enqueue(rh);
                     }
@@ -202,7 +204,6 @@ namespace Spreads.LMDB
                 {
                     if (_state == TransactionState.Active)
                     {
-                        Trace.TraceWarning("Finalizing active transaction. Will abort it.");
                         NativeMethods.mdb_txn_abort(_writeHandle);
                         Environment.FailFast("Finalizing active transaction. Will abort it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
                     }

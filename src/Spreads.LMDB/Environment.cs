@@ -25,6 +25,7 @@ namespace Spreads.LMDB
 
         private volatile int _instanceCount;
         private readonly UnixAccessMode _accessMode;
+        internal readonly bool _disableReadTxnAutoreset;
         private readonly DbEnvironmentFlags _openFlags;
         internal EnvironmentHandle _handle;
         private int _maxDbs;
@@ -58,10 +59,11 @@ namespace Spreads.LMDB
         /// <param name="disableAsync">Disable dedicated writer thread and NO_TLS option.
         /// Fire-and-forget option for write transaction will throw.
         /// .NET async cannot be used in transaction body. </param>
+        /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them.</param>
         public static LMDBEnvironment Create(string directory = null,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
-            bool disableAsync = false)
+            bool disableAsync = false, bool disableReadTxnAutoreset = false)
         {
 #pragma warning disable 618
             if (!disableAsync)
@@ -76,7 +78,7 @@ namespace Spreads.LMDB
             {
                 directory = Config.DbEnvironment.DefaultLocation;
             }
-            var env = _openEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode, disableAsync));
+            var env = _openEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode, disableAsync, disableReadTxnAutoreset));
             if (env._openFlags != openFlags || env._accessMode != accessMode)
             {
                 throw new InvalidOperationException("Environment is already open in this process with different flags and access mode.");
@@ -88,7 +90,8 @@ namespace Spreads.LMDB
         private LMDBEnvironment(string directory,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
-            bool disableWriterThread = false)
+            bool disableWriterThread = false,
+            bool disableReadTxnAutoreset = false)
         {
             if (!System.IO.Directory.Exists(directory))
             {
@@ -98,6 +101,7 @@ namespace Spreads.LMDB
             NativeMethods.AssertExecute(NativeMethods.mdb_env_create(out var envHandle));
             _handle = envHandle;
             _accessMode = accessMode;
+            _disableReadTxnAutoreset = disableReadTxnAutoreset;
 
             _directory = directory;
             _openFlags = openFlags;
