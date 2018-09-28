@@ -23,7 +23,7 @@ namespace Spreads.LMDB
         /// </summary>
         public static bool TraceErrors { get; set; } = false;
 
-        private int _instanceCount;
+        private volatile int _instanceCount;
         private readonly UnixAccessMode _accessMode;
         private readonly DbEnvironmentFlags _openFlags;
         internal EnvironmentHandle _handle;
@@ -628,6 +628,9 @@ namespace Spreads.LMDB
         /// Directory path to store database files.
         /// </summary>
         public string Directory => _directory;
+
+        [Obsolete("Not a part of LMDB API, for testing only")]
+        public int InstanceCount => _instanceCount;
 
         /// <summary>
         /// Copy an MDB environment to the specified path.

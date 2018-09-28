@@ -124,6 +124,12 @@ namespace Spreads.LMDB
             return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, rch));
         }
 
+        public ReadOnlyCursor OpenReadOnlyCursor(Transaction txn)
+        {
+            var rch = ReadCursorHandlePool.Allocate();
+            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, rch));
+        }
+
         /// <summary>
         /// Drops the database.
         /// </summary>
@@ -569,10 +575,32 @@ namespace Spreads.LMDB
 
         #endregion sdb_find
 
+
         /// <summary>
         /// Iterate over db values.
         /// </summary>
         public IEnumerable<KeyValuePair<DirectBuffer, DirectBuffer>> AsEnumerable(ReadOnlyTransaction txn)
+        {
+            DirectBuffer key = default;
+            DirectBuffer value = default;
+            using (var c = OpenReadOnlyCursor(txn))
+            {
+                if (c.TryGet(ref key, ref value, CursorGetOption.First))
+                {
+                    yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
+                    value = default;
+                }
+
+                while (c.TryGet(ref key, ref value, CursorGetOption.NextNoDuplicate))
+                {
+                    yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
+                    value = default;
+                }
+            }
+        }
+
+        // TODO reuse code, but with yield cursor must be opened inside. Need manual enumerable/enumerator impl
+        public IEnumerable<KeyValuePair<DirectBuffer, DirectBuffer>> AsEnumerable(Transaction txn)
         {
             DirectBuffer key = default;
             DirectBuffer value = default;
