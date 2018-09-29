@@ -5,7 +5,6 @@
 using Spreads.Buffers;
 using System;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Spreads.Utils.Bootstrap;
 
@@ -30,9 +29,7 @@ namespace Spreads.LMDB.Interop
                 () => { Debug.WriteLine("Native pre-copy"); },
                 (lib) =>
                 {
-                    ////Environment.FailFast(lib.Path);
                     //mdb_get_ptr = lib.GetFunctionPtr("mdb_get");
-
                     //mdb_put_ptr = lib.GetFunctionPtr("mdb_put");
 
                     Debug.WriteLine("Native post-copy");
@@ -152,6 +149,9 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_env_sync(IntPtr env, bool force);
+
+        [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int mdb_reader_check(EnvironmentHandle env, out int dead);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_env_sync(EnvironmentHandle env, bool force);

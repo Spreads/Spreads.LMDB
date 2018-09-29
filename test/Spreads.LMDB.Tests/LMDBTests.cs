@@ -26,6 +26,7 @@ namespace Spreads.LMDB.Tests
             var stat = env.GetStat();
             Console.WriteLine("entries: " + stat.ms_entries);
             Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
+            Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
             await env.Close();
         }
 
@@ -608,7 +609,7 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
-        [Serialization(BlittableSize = 16)]
+        [BinarySerialization(16)]
         public struct InPlaceUpdateable
         {
             public long Key;

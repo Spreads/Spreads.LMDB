@@ -723,7 +723,7 @@ namespace Spreads.LMDB.Tests
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 8, Size = 24)]
-        [Serialization(BlittableSize = 24)]
+        [BinarySerialization(24)]
         public struct DupValueWithWideKey
         {
             public ulong First;

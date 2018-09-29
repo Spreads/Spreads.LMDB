@@ -445,6 +445,13 @@ namespace Spreads.LMDB
             return stat;
         }
 
+        public int ReaderCheck()
+        {
+            EnsureOpened();
+            NativeMethods.AssertRead(NativeMethods.mdb_reader_check(_handle, out var dead));
+            return dead;
+        }
+
         /// <summary>
         /// Number of entires in the main database
         /// </summary>
