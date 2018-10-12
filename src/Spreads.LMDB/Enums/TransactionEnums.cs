@@ -65,7 +65,12 @@ namespace Spreads.LMDB
         /// <summary>
         /// Transaction is commited.
         /// </summary>
-        Commited
+        Commited,
+
+        /// <summary>
+        /// Transaction is reset.
+        /// </summary>
+        Reset
     }
 
     /// <summary>

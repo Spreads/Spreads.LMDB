@@ -750,7 +750,7 @@ namespace Spreads.LMDB.Tests
 
             var nodupKey = 0;
 
-            var count = 1_000_000;
+            var count = 500;
 
             try
             {
@@ -884,7 +884,7 @@ namespace Spreads.LMDB.Tests
 
             var nodupKey = 0;
 
-            var count = 500_000;
+            var count = 500;
 
             {
                 try
@@ -910,7 +910,6 @@ namespace Spreads.LMDB.Tests
             for (int r = 0; r < rounds; r++)
             {
                 using (Benchmark.Run("WideKeyFind", count * 5))
-
                 {
                     for (int i = 1; i <= count; i++)
                     {
@@ -1029,8 +1028,9 @@ namespace Spreads.LMDB.Tests
                             Value = i * 10 + 5
                         };
 
+                        using (var txn = env.BeginReadOnlyTransaction())
                         {
-                            db.TryFindDup(Lookup.GT, ref nodupKey, ref searchValue);
+                            db.TryFindDup(txn, Lookup.GT, ref nodupKey, ref searchValue);
 
                             if (searchValue.Value != i * 10 + 5)
                             {
@@ -1049,8 +1049,9 @@ namespace Spreads.LMDB.Tests
                             Value = i * 10 + 5
                         };
 
+                        using (var txn = env.BeginReadOnlyTransaction())
                         {
-                            db.TryFindDup(Lookup.EQ, ref nodupKey, ref searchValue);
+                            db.TryFindDup(txn, Lookup.EQ, ref nodupKey, ref searchValue);
 
                             if (searchValue.Value != i * 10 + 5)
                             {
@@ -1066,8 +1067,9 @@ namespace Spreads.LMDB.Tests
                             Value = i * 10 + 5
                         };
 
+                        using (var txn = env.BeginReadOnlyTransaction())
                         {
-                            db.TryFindDup(Lookup.GE, ref nodupKey, ref searchValue);
+                            db.TryFindDup(txn, Lookup.GE, ref nodupKey, ref searchValue);
 
                             if (searchValue.Value != i * 10 + 5)
                             {
@@ -1083,8 +1085,9 @@ namespace Spreads.LMDB.Tests
                             Value = i * 10 + 5
                         };
 
+                        using (var txn = env.BeginReadOnlyTransaction())
                         {
-                            if (!db.TryFindDup(Lookup.LE, ref nodupKey, ref searchValue))
+                            if (!db.TryFindDup(txn, Lookup.LE, ref nodupKey, ref searchValue))
                             {
                                 Assert.Fail("Cannot find");
                             }
@@ -1106,8 +1109,9 @@ namespace Spreads.LMDB.Tests
                             Value = i * 10 + 5
                         };
 
+                        using (var txn = env.BeginReadOnlyTransaction())
                         {
-                            db.TryFindDup(Lookup.LT, ref nodupKey, ref searchValue);
+                            db.TryFindDup(txn, Lookup.LT, ref nodupKey, ref searchValue);
 
                             if (searchValue.Value != i * 10 + 5)
                             {

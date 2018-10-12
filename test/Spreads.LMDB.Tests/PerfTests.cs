@@ -9,8 +9,6 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Spreads.LMDB.Tests
 {
@@ -20,7 +18,11 @@ namespace Spreads.LMDB.Tests
         [Test]
         public unsafe void SimpleWriteReadBenchmark()
         {
-            var count = 1_000_000;
+#pragma warning disable 618
+            Settings.DoAdditionalCorrectnessChecks = false;
+#pragma warning restore 618
+
+            var count = 1_00_000;
             var rounds = 10;
 
             var path = "./data/benchmark";
@@ -128,7 +130,7 @@ namespace Spreads.LMDB.Tests
 #pragma warning disable 618
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
-            var count = 1_000_000;
+            var count = 1_00_000;
             var rounds = 10;
 
             var path = "./data/benchmarkbatched";
@@ -142,8 +144,7 @@ namespace Spreads.LMDB.Tests
             Directory.CreateDirectory(dirS);
             Directory.CreateDirectory(dirK);
 
-            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.NoSync,
-                disableAsync: true);
+            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.NoSync, disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
@@ -162,7 +163,7 @@ namespace Spreads.LMDB.Tests
             }
 
             // var garbage1 = new byte[1];
-            
+
             for (int r = 0; r < rounds; r++)
             {
                 using (Benchmark.Run("Spreads Write", count, true))
@@ -173,48 +174,17 @@ namespace Spreads.LMDB.Tests
                         {
                             dbS.Put(tx, i, i, TransactionPutOptions.AppendData);
                         }
+
                         tx.Commit();
                     }
                 }
 
-                // var extraRounds = 100000_000_000 / count;
-
-                //var task = Task.Run(() =>
-                //{
-                //    var rng = new System.Random();
-                //    var sw = new SpinWait();
-                //    while (true)
-                //    {
-                //        try
-                //        {
-                //            var garbage = new byte[rng.Next(50000, 80000)];
-                //            garbage[(int)((garbage.Length - 1) * rng.NextDouble())] = 42;
-                //            if (garbage[(int)((garbage.Length - 1) * rng.NextDouble())] != 42)
-                //            {
-                //                // sw.SpinOnce();
-                //                garbage[0] = (byte)(garbage[(int)((garbage.Length - 1) * rng.NextDouble())] + 1);
-                //                // if (rng.NextDouble() > 0.95)
-                //                {
-                //                    garbage1 = garbage;
-                //                    GC.Collect();
-                //                }
-                //            }
-                //        }
-                //        catch (Exception ex)
-                //        {
-                //            Console.WriteLine(ex);
-                //            GC.Collect();
-                //        }
-                //    }
-
-                //});
-
-                using (Benchmark.Run("Spreads Read", count, true))
+                var extraRounds = 100;
+                using (Benchmark.Run("Spreads Read", count * extraRounds, true))
                 {
                     using (var tx = envS.BeginReadOnlyTransaction())
                     {
-                        
-                        // for (long j = 0; j < extraRounds; j++)
+                        for (long j = 0; j < extraRounds; j++)
                         {
                             for (long i = r * count; i < (r + 1) * count; i++)
                             {
@@ -224,44 +194,46 @@ namespace Spreads.LMDB.Tests
                                     Assert.Fail();
                                 }
                             }
-                            GC.Collect();
                         }
                     }
                 }
 
-                //using (Benchmark.Run("KdSoft Write", count, true))
-                //{
-                //    using (var tx = envK.BeginTransaction(TransactionModes.None))
-                //    {
-                //        for (long i = r * count; i < (r + 1) * count; i++)
-                //        {
-                //            var ptr = Unsafe.AsPointer(ref i);
-                //            var span = new Span<byte>(ptr, 8);
+                using (Benchmark.Run("KdSoft Write", count, true))
+                {
+                    using (var tx = envK.BeginTransaction(TransactionModes.None))
+                    {
+                        for (long i = r * count; i < (r + 1) * count; i++)
+                        {
+                            var ptr = Unsafe.AsPointer(ref i);
+                            var span = new Span<byte>(ptr, 8);
 
-                //            dbase.Put(tx, span, span, PutOptions.AppendData);
-                //        }
-                //        tx.Commit();
-                //    }
-                //}
+                            dbase.Put(tx, span, span, PutOptions.AppendData);
+                        }
+                        tx.Commit();
+                    }
+                }
 
-                //using (Benchmark.Run("KdSoft Read", count, true))
-                //{
-                //    using (var tx = envK.BeginReadOnlyTransaction())
-                //    {
-                //        for (long i = r * count; i < (r + 1) * count; i++)
-                //        {
-                //            var ptr = Unsafe.AsPointer(ref i);
-                //            var span = new Span<byte>(ptr, 8);
+                using (Benchmark.Run("KdSoft Read", count * extraRounds, true))
+                {
+                    using (var tx = envK.BeginReadOnlyTransaction())
+                    {
+                        for (long j = 0; j < extraRounds; j++)
+                        {
+                            for (long i = r * count; i < (r + 1) * count; i++)
+                            {
+                                var ptr = Unsafe.AsPointer(ref i);
+                                var span = new Span<byte>(ptr, 8);
 
-                //            dbase.Get(tx, span, out var data);
-                //            var val = MemoryMarshal.Cast<byte, long>(data)[0];
-                //            if (val != i)
-                //            {
-                //                Assert.Fail();
-                //            }
-                //        }
-                //    }
-                //}
+                                dbase.Get(tx, span, out var data);
+                                var val = MemoryMarshal.Cast<byte, long>(data)[0];
+                                if (val != i)
+                                {
+                                    Assert.Fail();
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             envS.Close();

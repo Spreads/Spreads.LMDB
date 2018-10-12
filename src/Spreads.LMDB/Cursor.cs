@@ -132,10 +132,10 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ReadOnlyCursor(CursorImpl cursor)
         {
-            if (!cursor.IsReadOnly)
-            {
-                CursorImpl.ThrowCursorIsReadOnly();
-            }
+            //if (!cursor.IsReadOnly)
+            //{
+            //    CursorImpl.ThrowCursorIsReadOnly();
+            //}
             _impl = cursor;
         }
 
@@ -281,19 +281,19 @@ namespace Spreads.LMDB
 
                 if (rh.IsInvalid)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn._readHandle.Handle, db._handle, out IntPtr handle));
+                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn.Handle, db._handle, out IntPtr handle));
                     rh.SetNewHandle(handle);
                 }
                 else
                 {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_renew(txn._readHandle.Handle, rh.Handle));
+                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_renew(txn.Handle, rh.Handle));
                 }
 
                 c._readHandle = rh;
             }
             else
             {
-                NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn._writeHandle, db._handle, out IntPtr handle));
+                NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn.Handle, db._handle, out IntPtr handle));
                 c._writeHandle = handle;
             }
 

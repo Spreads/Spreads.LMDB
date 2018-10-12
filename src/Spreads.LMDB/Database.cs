@@ -36,48 +36,48 @@ namespace Spreads.LMDB
             _name = name;
             _environment = txn.LmdbEnvironment;
 
-            NativeMethods.AssertExecute(NativeMethods.mdb_dbi_open(txn._writeHandle, name, _config.OpenFlags, out var handle));
+            NativeMethods.AssertExecute(NativeMethods.mdb_dbi_open(txn.Handle, name, _config.OpenFlags, out var handle));
             if (_config.CompareFunction != null)
             {
-                NativeMethods.AssertExecute(NativeMethods.mdb_set_compare(txn._writeHandle, handle, _config.CompareFunction));
+                NativeMethods.AssertExecute(NativeMethods.mdb_set_compare(txn.Handle, handle, _config.CompareFunction));
             }
             if (_config.DupSortFunction != null)
             {
-                NativeMethods.AssertExecute(NativeMethods.mdb_set_dupsort(txn._writeHandle, handle, _config.DupSortFunction));
+                NativeMethods.AssertExecute(NativeMethods.mdb_set_dupsort(txn.Handle, handle, _config.DupSortFunction));
             }
             if (_config.DupSortPrefix > 0)
             {
                 if (_config.DupSortPrefix == 64 * 64)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint64x64(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint64x64(txn.Handle, handle));
                 }
                 else if (_config.DupSortPrefix == 128)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint128(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint128(txn.Handle, handle));
                 }
                 else if (_config.DupSortPrefix == 96)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint96(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint96(txn.Handle, handle));
                 }
                 else if (_config.DupSortPrefix == 80)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint80(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint80(txn.Handle, handle));
                 }
                 else if (_config.DupSortPrefix == 64)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint64(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint64(txn.Handle, handle));
                 }
                 else if (_config.DupSortPrefix == 48)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint48(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint48(txn.Handle, handle));
                 }
                 else if (_config.DupSortPrefix == 32)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint32(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint32(txn.Handle, handle));
                 }
                 else if (_config.DupSortPrefix == 16)
                 {
-                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint16(txn._writeHandle, handle));
+                    NativeMethods.AssertExecute(NativeMethods.sdb_set_dupsort_as_uint16(txn.Handle, handle));
                 }
                 else
                 {
@@ -126,8 +126,7 @@ namespace Spreads.LMDB
 
         public ReadOnlyCursor OpenReadOnlyCursor(Transaction txn)
         {
-            var rch = ReadCursorHandlePool.Allocate();
-            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, rch));
+            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, null));
         }
 
         /// <summary>
@@ -141,7 +140,7 @@ namespace Spreads.LMDB
             {
                 try
                 {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, true));
+                    NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl.Handle, _handle, true));
                     txn.Commit();
                 }
                 catch
@@ -157,7 +156,7 @@ namespace Spreads.LMDB
         /// </summary>
         public bool Drop(Transaction transaction)
         {
-            var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(transaction._impl._writeHandle, _handle, true));
+            var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(transaction._impl.Handle, _handle, true));
             _handle = default;
             return res == 0;
         }
@@ -173,7 +172,7 @@ namespace Spreads.LMDB
             {
                 try
                 {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl._writeHandle, _handle, false));
+                    NativeMethods.AssertExecute(NativeMethods.mdb_drop(txn._impl.Handle, _handle, false));
                     txn.Commit();
                 }
                 catch
@@ -189,7 +188,7 @@ namespace Spreads.LMDB
         /// </summary>
         public bool Truncate(Transaction transaction)
         {
-            var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(transaction._impl._writeHandle, _handle, false));
+            var res = NativeMethods.AssertExecute(NativeMethods.mdb_drop(transaction._impl.Handle, _handle, false));
             return res == 0;
         }
 
@@ -197,7 +196,7 @@ namespace Spreads.LMDB
         {
             using (var tx = TransactionImpl.Create(Environment, TransactionBeginFlags.ReadOnly))
             {
-                NativeMethods.AssertRead(NativeMethods.mdb_stat(tx._readHandle.Handle, _handle, out var stat));
+                NativeMethods.AssertRead(NativeMethods.mdb_stat(tx.Handle, _handle, out var stat));
                 return stat;
             }
         }
@@ -222,7 +221,7 @@ namespace Spreads.LMDB
         public void Put(Transaction txn, ref DirectBuffer key, ref DirectBuffer value,
             TransactionPutOptions flags = TransactionPutOptions.None)
         {
-            NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
+            NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl.Handle, _handle,
                 ref key, ref value, flags));
         }
 
@@ -235,7 +234,7 @@ namespace Spreads.LMDB
             var valuePtr = AsPointer(ref value);
             var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
-            NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl._writeHandle, _handle,
+            NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl.Handle, _handle,
                 ref key1, ref value1,
                 flags));
         }
@@ -250,7 +249,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Put<TKey, TValue>(TKey key, TValue value,
+        public void Put<TKey, TValue>(TKey key, TValue value,
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
@@ -277,7 +276,7 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Delete(Transaction txn, ref DirectBuffer key)
         {
-            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
+            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl.Handle, _handle,
                 in key, IntPtr.Zero));
         }
 
@@ -300,7 +299,7 @@ namespace Spreads.LMDB
             {
                 throw new InvalidOperationException("Value parameter should only be provided for dupsorted dbs");
             }
-            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl._writeHandle, _handle,
+            NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl.Handle, _handle,
                 in key, in value));
         }
 
@@ -334,58 +333,12 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet(Transaction txn, ref DirectBuffer key, out DirectBuffer value)
-        {
-            var keyPtr = AsPointer(ref key);
-            value = default;
-            var valuePtr = AsPointer(ref value);
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get((void*)txn._impl._writeHandle, _handle, keyPtr, valuePtr));
-            return res != NativeMethods.MDB_NOTFOUND;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet<T>(Transaction txn, ref DirectBuffer key, out T value)
-             where T : struct
-        {
-            TypeHelper<T>.EnsureFixedSize();
-
-            if (TryGet(txn, ref key, out var valueDb))
-            {
-                value = ReadUnaligned<T>((byte*)valueDb.Data);
-                return true;
-            }
-
-            value = default;
-            return false;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet<T>(Transaction txn, ref T key, out DirectBuffer value)
-            where T : struct
-        {
-            var keyPtr = AsPointer(ref key);
-            var keyDb = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
-
-            return TryGet(txn, ref keyDb, out value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGet<TKey, TValue>(Transaction txn, ref TKey key, out TValue value)
-            where TKey : struct where TValue : struct
-        {
-            var keyPtr = AsPointer(ref key);
-            var keyDb = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-
-            return TryGet(txn, ref keyDb, out value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet(ReadOnlyTransaction txn, ref DirectBuffer key, out DirectBuffer value)
         {
             var keyPtr = AsPointer(ref key);
             value = default;
             var valuePtr = AsPointer(ref value);
-            var res = NativeMethods.AssertRead(NativeMethods.mdb_get((void*)txn._impl._readHandle.Handle, _handle, keyPtr, valuePtr));
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_get((void*)txn._impl.Handle, _handle, keyPtr, valuePtr));
             return res != NativeMethods.MDB_NOTFOUND;
         }
 
@@ -429,7 +382,7 @@ namespace Spreads.LMDB
         // TODO nodup tryfind
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value)
+        public bool TryFindDup<TKey, TValue>(ReadOnlyTransaction txn, Lookup direction, ref TKey key, ref TValue value)
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
@@ -438,7 +391,7 @@ namespace Spreads.LMDB
             var valuePtr = AsPointer(ref value);
             var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
 
-            var res = TryFindDup(direction, ref key1, ref value1);
+            var res = TryFindDup(txn, direction, ref key1, ref value1);
             if (res)
             {
                 key = ReadUnaligned<TKey>((byte*)key1.Data);
@@ -449,132 +402,15 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryFindDup(Lookup direction, ref DirectBuffer key, ref DirectBuffer value)
+        public bool TryFindDup(ReadOnlyTransaction txn, Lookup direction, ref DirectBuffer key, ref DirectBuffer value)
         {
-            IntPtr rthPtr = IntPtr.Zero;
-            IntPtr rchPtr = IntPtr.Zero;
-
-            if (!_environment.ReadHandlePool.TryDequeue(out var rth))
+            using (var cursor = OpenReadOnlyCursor(txn))
             {
-                rth = new ReadTransactionHandle();
+                return cursor.TryFindDup(direction, ref key, ref value);
             }
-            if (!rth.IsInvalid)
-            {
-                rthPtr = rth.Handle;
-            }
-
-            var rch = ReadCursorHandlePool.Allocate();
-            if (!rth.IsInvalid)
-            {
-                rchPtr = rch.Handle;
-            }
-
-            int res = 0;
-
-            switch (direction)
-            {
-                case Lookup.LT:
-                    res = NativeMethods.AssertRead(
-                         NativeMethods.sdb_find_lt_dup(
-                             _environment._handle.Handle,
-                             _handle,
-                             ref rthPtr,
-                             ref rchPtr,
-                             ref key,
-                             ref value)
-                        );
-                    break;
-
-                case Lookup.LE:
-                    res = NativeMethods.AssertRead(
-                        NativeMethods.sdb_find_le_dup(
-                            _environment._handle.Handle,
-                            _handle,
-                            ref rthPtr,
-                            ref rchPtr,
-                            ref key,
-                            ref value)
-                        );
-                    break;
-
-                case Lookup.EQ:
-                    res = NativeMethods.AssertRead(
-                        NativeMethods.sdb_find_eq_dup(
-                            _environment._handle.Handle,
-                            _handle,
-                            ref rthPtr,
-                            ref rchPtr,
-                            ref key,
-                            ref value)
-                        );
-                    break;
-
-                case Lookup.GE:
-                    res = NativeMethods.AssertRead(
-                        NativeMethods.sdb_find_ge_dup(
-                            _environment._handle.Handle,
-                            _handle,
-                            ref rthPtr,
-                            ref rchPtr,
-                            ref key,
-                            ref value)
-                        );
-                    break;
-
-                case Lookup.GT:
-                    res = NativeMethods.AssertRead(
-                        NativeMethods.sdb_find_gt_dup(
-                            _environment._handle.Handle,
-                            _handle,
-                            ref rthPtr,
-                            ref rchPtr,
-                            ref key,
-                            ref value)
-                        );
-                    break;
-            }
-
-            {
-                if (rth.IsInvalid)
-                {
-                    if (rthPtr == IntPtr.Zero)
-                    {
-                        throw new ApplicationException("Wrong native find method implementation: txn");
-                    }
-
-                    rth.SetNewHandle(rthPtr);
-                }
-
-                if (_environment.ReadHandlePool.Count >= _environment.MaxReaders - System.Environment.ProcessorCount)
-                {
-                    rth.Dispose();
-                }
-                else
-                {
-                    // it is returned already reset
-                    _environment.ReadHandlePool.Enqueue(rth);
-                }
-            }
-
-            {
-                if (rch.IsInvalid)
-                {
-                    if (rchPtr == IntPtr.Zero)
-                    {
-                        throw new ApplicationException("Wrong native find method implementation: cursor");
-                    }
-
-                    rch.SetNewHandle(rchPtr);
-                }
-
-                ReadCursorHandlePool.Free(rch);
-            }
-
-            return res != NativeMethods.MDB_NOTFOUND;
         }
 
         #endregion sdb_find
-
 
         /// <summary>
         /// Iterate over db values.
@@ -643,7 +479,58 @@ namespace Spreads.LMDB
             });
         }
 
+        public IEnumerable<KeyValuePair<TKey, TValue>> AsEnumerable<TKey, TValue>(Transaction txn)
+        {
+            var keySize = TypeHelper<TKey>.EnsureFixedSize();
+            var valueSize = TypeHelper<TValue>.EnsureFixedSize();
+
+            return AsEnumerable(txn).Select(kvp =>
+            {
+                if (kvp.Key.Length != keySize)
+                {
+                    throw new InvalidOperationException("Key buffer length does not equals to key size");
+                }
+
+                if (kvp.Value.Length != valueSize)
+                {
+                    throw new InvalidOperationException("Value buffer length does not equals to value size");
+                }
+                return new KeyValuePair<TKey, TValue>(kvp.Key.Read<TKey>(0), kvp.Value.Read<TValue>(0));
+            });
+        }
+
         private IEnumerable<DirectBuffer> AsEnumerable(ReadOnlyTransaction txn, RetainedMemory<byte> key)
+        {
+            if (((int)OpenFlags & (int)DbFlags.DuplicatesSort) == 0)
+            {
+                throw new InvalidOperationException("AsEnumerable overload with key parameter should only be provided for dupsorted dbs");
+            }
+
+            try
+            {
+                var key1 = new DirectBuffer(key.Span);
+                DirectBuffer value = default;
+                using (var c = OpenReadOnlyCursor(txn))
+                {
+                    if (c.TryGet(ref key1, ref value, CursorGetOption.SetKey) &&
+                        c.TryGet(ref key1, ref value, CursorGetOption.FirstDuplicate))
+                    {
+                        yield return value;
+                    }
+
+                    while (c.TryGet(ref key1, ref value, CursorGetOption.NextDuplicate))
+                    {
+                        yield return value;
+                    }
+                }
+            }
+            finally
+            {
+                key.Dispose();
+            }
+        }
+
+        private IEnumerable<DirectBuffer> AsEnumerable(Transaction txn, RetainedMemory<byte> key)
         {
             if (((int)OpenFlags & (int)DbFlags.DuplicatesSort) == 0)
             {

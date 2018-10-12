@@ -14,7 +14,7 @@
         <StartupObject />
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="KdSoft.Lmdb" Version="1.0.0-beta-2018-09-01" />
+        <PackageReference Include="KdSoft.Lmdb" Version="1.0.1" />
         <PackageReference Include="LightningDB" Version="0.10.0" />
         <PackageReference Include="Microsoft.CSharp" Version="4.5.0" />
         <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />

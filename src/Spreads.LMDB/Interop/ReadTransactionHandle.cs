@@ -3,33 +3,33 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace Spreads.LMDB.Interop
 {
-    internal class ReadTransactionHandle : SafeHandle
-    {
-        internal ReadTransactionHandle() : base(IntPtr.Zero, ownsHandle: true)
-        { }
+    
+    //[Obsolete]
+    //internal class ReadTransactionHandleX : SafeHandle
+    //{
+    //    internal ReadTransactionHandle() : base(IntPtr.Zero, ownsHandle: true)
+    //    { }
 
-        public override bool IsInvalid => handle == IntPtr.Zero;
+    //    public override bool IsInvalid => handle == IntPtr.Zero;
 
-        internal void SetNewHandle(IntPtr newHandle)
-        {
-            SetHandle(newHandle);
-        }
+    //    internal void SetNewHandle(IntPtr newHandle)
+    //    {
+    //        SetHandle(newHandle);
+    //    }
 
-        internal IntPtr Handle
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return handle; }
-        }
+    //    internal IntPtr Handle
+    //    {
+    //        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //        get { return handle; }
+    //    }
 
-        protected override bool ReleaseHandle()
-        {
-            NativeMethods.mdb_txn_abort(handle);
-            return true;
-        }
-    }
+    //    protected override bool ReleaseHandle()
+    //    {
+    //        NativeMethods.mdb_txn_abort(handle);
+    //        return true;
+    //    }
+    //}
 }

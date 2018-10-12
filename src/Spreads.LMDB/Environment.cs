@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Spreads.LMDB.Utils;
 
 namespace Spreads.LMDB
 {
@@ -25,7 +26,7 @@ namespace Spreads.LMDB
 
         private volatile int _instanceCount;
         private readonly UnixAccessMode _accessMode;
-        internal readonly bool _disableReadTxnAutoreset;
+        private readonly bool _disableReadTxnAutoreset;
         private readonly DbEnvironmentFlags _openFlags;
         internal EnvironmentHandle _handle;
         private int _maxDbs;
@@ -41,7 +42,7 @@ namespace Spreads.LMDB
 
         private uint _maxReaders;
 
-        internal readonly ConcurrentQueue<ReadTransactionHandle> ReadHandlePool = new ConcurrentQueue<ReadTransactionHandle>();
+        internal LockedObjectPool<TransactionImpl> ReadTxnPool;
 
         // Useful for testing when simulating multiple processes in a single one
         // and not dealing with LMDB-specific multi-process issues, but instead
@@ -193,6 +194,9 @@ namespace Spreads.LMDB
             }
 
             _isOpen = true;
+            var maxPooledReaders = Math.Max(16, Math.Min(Environment.ProcessorCount * 2, MaxReaders - Environment.ProcessorCount * 2));
+            var poolSize = _disableReadTxnAutoreset ? 1 : maxPooledReaders;
+            ReadTxnPool = new LockedObjectPool<TransactionImpl>(poolSize);
         }
 
         public bool AutoCommit { get; set; } = false;
@@ -425,9 +429,10 @@ namespace Spreads.LMDB
                     Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
                 }
 
-                while (ReadHandlePool.TryDequeue(out var rh))
+                TransactionImpl txn;
+                while ((txn = ReadTxnPool.Rent()) != null)
                 {
-                    rh.Dispose();
+                    txn.Dispose();
                 }
 
                 _cts.Cancel();

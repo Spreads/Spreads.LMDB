@@ -7,6 +7,7 @@ using Spreads.LMDB.Interop;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Spreads.LMDB
 {
@@ -62,10 +63,6 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ReadOnlyTransaction(TransactionImpl txn)
         {
-            if (!txn.IsReadOnly)
-            {
-                TransactionImpl.ThrowlTransactionIsReadOnly();
-            }
             _impl = txn;
         }
 
@@ -75,18 +72,24 @@ namespace Spreads.LMDB
             _impl.Dispose();
         }
 
-        // TODO Manual Reset/Renew
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Reset()
+        {
+            _impl.Reset();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Renew()
+        {
+            _impl.Reset();
+        }
     }
 
-    internal class TransactionImpl : IDisposable
+    internal class TransactionImpl : SafeHandle
     {
         private LMDBEnvironment _lmdbEnvironment;
 
-        // on dispose must close write and reset read
-
-        internal IntPtr _writeHandle;
-
-        internal ReadTransactionHandle _readHandle;
+        private bool _isReadOnly;
 
         private TransactionState _state;
 
@@ -95,7 +98,7 @@ namespace Spreads.LMDB
         private static readonly ObjectPool<TransactionImpl> TxPool =
             new ObjectPool<TransactionImpl>(() => new TransactionImpl(), Environment.ProcessorCount * 16);
 
-        private TransactionImpl()
+        private TransactionImpl() : base(IntPtr.Zero, true)
         {
             _state = TransactionState.Disposed;
         }
@@ -105,7 +108,45 @@ namespace Spreads.LMDB
         {
             lmdbEnvironment.EnsureOpened();
 
-            var tx = TxPool.Allocate();
+            TransactionImpl tx;
+
+            // ReSharper disable once BitwiseOperatorOnEnumWithoutFlags
+            var isReadOnly = (beginFlags & TransactionBeginFlags.ReadOnly) == TransactionBeginFlags.ReadOnly;
+
+            if (isReadOnly)
+            {
+                if ((tx = lmdbEnvironment.ReadTxnPool.Rent()) == null)
+                {
+                    tx = TxPool.Allocate();
+                    tx._isReadOnly = true;
+                }
+                else
+                {
+                    Debug.Assert(tx._isReadOnly);
+                }
+
+                if (tx.IsInvalidFast)
+                {
+                    // create new handle
+                    NativeMethods.AssertExecute(NativeMethods.mdb_txn_begin(
+                            lmdbEnvironment._handle.Handle,
+                            IntPtr.Zero, beginFlags, out var handle));
+                    tx.SetNewHandle(handle);
+                }
+                else
+                {
+                    tx.Renew();
+                }
+            }
+            else
+            {
+                tx = TxPool.Allocate();
+                tx._isReadOnly = false;
+                NativeMethods.AssertExecute(NativeMethods.mdb_txn_begin(
+                    lmdbEnvironment._handle.Handle,
+                    IntPtr.Zero, beginFlags, out IntPtr handle));
+                tx.handle = handle;
+            }
 
             if (tx._state != TransactionState.Disposed)
             {
@@ -113,39 +154,11 @@ namespace Spreads.LMDB
             }
 
             tx._lmdbEnvironment = lmdbEnvironment;
-            // ReSharper disable once BitwiseOperatorOnEnumWithoutFlags
-            var isReadOnly = (beginFlags & TransactionBeginFlags.ReadOnly) == TransactionBeginFlags.ReadOnly;
-            if (isReadOnly)
-            {
-                if (!tx._lmdbEnvironment.ReadHandlePool.TryDequeue(out var rh))
-                {
-                    rh = new ReadTransactionHandle();
-                }
-                if (rh.IsInvalid)
-                {
-                    // create new
-                    NativeMethods.AssertExecute(
-                        NativeMethods.mdb_txn_begin(lmdbEnvironment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
-                    rh.SetNewHandle(handle);
-                }
-                else
-                {
-                    // renew
-                    NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(rh.Handle));
-                }
-                tx._readHandle = rh;
-            }
-            else
-            {
-                NativeMethods.AssertExecute(
-                    NativeMethods.mdb_txn_begin(lmdbEnvironment._handle.Handle, IntPtr.Zero, beginFlags, out IntPtr handle));
-                tx._writeHandle = handle;
-            }
             tx._state = TransactionState.Active;
             return tx;
         }
 
-        protected void Dispose(bool disposing)
+        protected override void Dispose(bool disposing)
         {
             var isReadOnly = IsReadOnly;
             if (_state == TransactionState.Disposed)
@@ -160,32 +173,32 @@ namespace Spreads.LMDB
                     // See comment in Dispose()
                     if (isReadOnly)
                     {
-                        _readHandle.Dispose();
+                        base.Dispose(true);
                     }
                     return;
                 }
             }
 
+            _state = TransactionState.Disposed;
+
             if (isReadOnly)
             {
                 if (disposing)
                 {
-                    var rh = _readHandle;
-                    _readHandle = null;
-                    if (_lmdbEnvironment._disableReadTxnAutoreset || _lmdbEnvironment.ReadHandlePool.Count >= _lmdbEnvironment.MaxReaders - Environment.ProcessorCount)
+                    NativeMethods.mdb_txn_reset(handle);
+                    var pooled = _lmdbEnvironment.ReadTxnPool.Return(this);
+                    if (pooled)
                     {
-                        rh.Dispose();
+                        Debug.Assert(_state == TransactionState.Disposed); // set above
+                        return;
                     }
-                    else
-                    {                        
-                        NativeMethods.mdb_txn_reset(rh.Handle);
-                        _lmdbEnvironment.ReadHandlePool.Enqueue(rh);
-                    }
+
+                    ReleaseHandle();
                 }
                 else
                 {
                     Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly.");
-                    _readHandle.Dispose();
+                    base.Dispose(false);
                 }
             }
             else
@@ -196,11 +209,11 @@ namespace Spreads.LMDB
                     {
                         if (LmdbEnvironment.AutoCommit)
                         {
-                            NativeMethods.mdb_txn_commit(_writeHandle);
+                            NativeMethods.mdb_txn_commit(handle);
                         }
                         else
                         {
-                            NativeMethods.mdb_txn_abort(_writeHandle);
+                            NativeMethods.mdb_txn_abort(handle);
                             // This should not be catchable
                             Environment.FailFast("Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
                         }
@@ -210,7 +223,7 @@ namespace Spreads.LMDB
                 {
                     if (_state == TransactionState.Active)
                     {
-                        NativeMethods.mdb_txn_abort(_writeHandle);
+                        NativeMethods.mdb_txn_abort(handle);
                         Environment.FailFast("Finalizing active transaction. Will abort it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
                     }
                     else
@@ -218,27 +231,57 @@ namespace Spreads.LMDB
                         Trace.TraceWarning("Finalizing finished write transaction. Dispose it explicitly.");
                     }
                 }
-                _writeHandle = IntPtr.Zero;
+                handle = IntPtr.Zero;
             }
 
             _lmdbEnvironment = null;
-            _state = TransactionState.Disposed;
+
             if (disposing)
             {
                 TxPool.Free(this);
             }
         }
 
-        public void Dispose()
+        // https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.safehandle.releasehandle?view=netframework-4.7.2#remarks
+        // The ReleaseHandle method is guaranteed to be called only once and only if the handle
+        // is valid as defined by the IsInvalid property. Implement this method in your SafeHandle
+        // derived classes to execute any code that is required to free the handle.
+        // Because one of the functions of SafeHandle is to guarantee prevention of resource leaks,
+        // the code in your implementation of ReleaseHandle must never fail.
+        protected override bool ReleaseHandle()
         {
-            GC.SuppressFinalize(this);
-            Dispose(true);
+            var h = handle;
+            handle = IntPtr.Zero;
+            NativeMethods.mdb_txn_abort(h);
+            return true;
         }
 
-        ~TransactionImpl()
+        internal IntPtr Handle
         {
-            Dispose(false);
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => handle;
         }
+
+        // inlined
+        private bool IsInvalidFast
+        {
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            get => handle == IntPtr.Zero;
+        }
+
+        // TODO check usages, internal should use FastVersion
+        public override bool IsInvalid => IsInvalidFast;
+
+        internal void SetNewHandle(IntPtr newHandle)
+        {
+            SetHandle(newHandle);
+        }
+
+        //internal IntPtr Handle
+        //{
+        //    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //    get => handle;
+        //}
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowShoudBeDisposed()
@@ -272,7 +315,7 @@ namespace Spreads.LMDB
         public bool IsReadOnly
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _readHandle != null;
+            get => _isReadOnly;
         }
 
         /// <summary>
@@ -297,34 +340,81 @@ namespace Spreads.LMDB
                 ThrowTxReadOnlyOnCommit();
             }
 
-            NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(_writeHandle));
+            NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(handle));
             _state = TransactionState.Commited;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Abort()
+        {
+            if (_state != TransactionState.Active)
+            {
+                ThrowTxNotActiveOnAbort();
+            }
+            ReleaseHandle();
+            _state = TransactionState.Aborted;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Reset()
+        {
+            if (_state != TransactionState.Active)
+            {
+                ThrowTxNotActiveOnReset();
+            }
+            if (!_isReadOnly)
+            {
+                ThrowTxNotReadonlyOnReset();
+            }
+            NativeMethods.mdb_txn_reset(handle);
+            _state = TransactionState.Reset;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Renew()
+        {
+            if (_state != TransactionState.Reset)
+            {
+                ThrowTxNotResetOnRenew();
+            }
+            NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(handle));
+            _state = TransactionState.Active;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowTxNotActiveOnCommit()
         {
-            throw new InvalidOperationException("Transaction state is not active for commit");
+            throw new InvalidOperationException("Transaction state is not active on commit");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowTxNotActiveOnAbort()
+        {
+            throw new InvalidOperationException("Transaction state is not active on abort");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowTxNotActiveOnReset()
+        {
+            throw new InvalidOperationException("Transaction state is not active on reset");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowTxNotReadonlyOnReset()
+        {
+            throw new InvalidOperationException("Transaction is not readonly on reset");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowTxNotResetOnRenew()
+        {
+            throw new InvalidOperationException("Transaction state is not reset on renew");
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowTxReadOnlyOnCommit()
         {
             throw new InvalidOperationException("Cannot commit readonly transaction");
-        }
-
-        public void Abort()
-        {
-            if (_state != TransactionState.Active)
-            {
-                throw new InvalidOperationException("Transaction state is not active for abort");
-            }
-            if (IsReadOnly)
-            {
-                throw new InvalidOperationException("Cannot abort readonly transaction. Use Dispose() method instead.");
-            }
-            NativeMethods.mdb_txn_abort(_writeHandle);
-            _state = TransactionState.Aborted;
         }
     }
 }
