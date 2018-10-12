@@ -47,6 +47,12 @@ namespace Spreads.LMDB
         {
             _impl.Dispose();
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator ReadOnlyTransaction(Transaction value)
+        {
+            return new ReadOnlyTransaction(value._impl);
+        }
     }
 
     public readonly struct ReadOnlyTransaction : IDisposable
