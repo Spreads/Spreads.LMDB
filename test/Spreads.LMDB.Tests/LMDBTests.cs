@@ -864,7 +864,26 @@ namespace Spreads.LMDB.Tests
 
         private static unsafe IntPtr DbSafePtr(DirectBuffer db)
         {
-            return (IntPtr) db.Data;
+            return (IntPtr)db.Data;
+        }
+
+        [Test]
+        public void CouldOpenRoCursorFromWriteTxn()
+        {
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path);
+            env.Open();
+
+            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
+
+            using (var txn = env.BeginTransaction())
+            using (var cursor = db.OpenReadOnlyCursor((ReadOnlyTransaction)txn))
+            using (var cursor2 = db.OpenReadOnlyCursor(txn))
+            {
+
+            }
+
+            env.Close().Wait();
         }
     }
 }

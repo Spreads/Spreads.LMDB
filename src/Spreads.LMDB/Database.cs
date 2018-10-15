@@ -118,15 +118,26 @@ namespace Spreads.LMDB
             return new Cursor(CursorImpl.Create(this, txn._impl, null));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlyCursor OpenReadOnlyCursor(ReadOnlyTransaction txn)
         {
-            var rch = ReadCursorHandlePool.Allocate();
-            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, rch));
+            CursorImpl cursorImpl;
+            if (txn._impl.IsReadOnly)
+            {
+                var rch = ReadCursorHandlePool.Allocate();
+                cursorImpl = CursorImpl.Create(this, txn._impl, rch);
+            }
+            else
+            {
+                cursorImpl = CursorImpl.Create(this, txn._impl, null);
+            }
+            return new ReadOnlyCursor(cursorImpl);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlyCursor OpenReadOnlyCursor(Transaction txn)
         {
-            return new ReadOnlyCursor(CursorImpl.Create(this, txn._impl, null));
+            return OpenReadOnlyCursor((ReadOnlyTransaction)txn);
         }
 
         /// <summary>
