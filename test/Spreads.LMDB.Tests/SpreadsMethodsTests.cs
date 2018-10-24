@@ -370,7 +370,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldFindDup()
         {
-            var env = LMDBEnvironment.Create("./Data/CouldFindDup",
+            var env = LMDBEnvironment.Create(TestUtils.GetPath(),
                 DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
             env.Open();
 
@@ -718,7 +718,7 @@ namespace Spreads.LMDB.Tests
             {
                 txn.Abort();
             }
-
+            db.Dispose();
             env.Close().Wait();
         }
 
@@ -734,7 +734,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldFindDupWideKeyBatch()
         {
-            var path = TestUtils.GetPath(clear: true);
+            var path = TestUtils.GetPath();
             Console.WriteLine(Path.GetFullPath(path));
             var env = LMDBEnvironment.Create(path,
                  DbEnvironmentFlags.NoSync);
@@ -869,7 +869,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldFindDupWideKey()
         {
-            var path = TestUtils.GetPath(clear: true);
+            var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path,
                  DbEnvironmentFlags.NoSync, disableAsync: true);
             env.MapSize = 100 * 1024 * 1024;
@@ -1178,7 +1178,7 @@ namespace Spreads.LMDB.Tests
                     Assert.IsTrue(found);
                 }
             }
-
+            db.Dispose();
             env.Close().Wait();
         }
     }

@@ -52,32 +52,34 @@ namespace Spreads.LMDB.Tests
             env.Open();
             var stat = env.GetStat();
 
-            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
-
-            db.Truncate();
-
-            var values = new byte[] { 1, 2, 3, 4 };
-
-            await env.WriteAsync(txn =>
+            using (var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)))
             {
-                var key = new DirectBuffer(values);
-                var value = new DirectBuffer(values);
-                DirectBuffer value2 = default;
 
-                using (var cursor = db.OpenCursor(txn))
+                db.Truncate();
+
+                var values = new byte[] {1, 2, 3, 4};
+
+                await env.WriteAsync(txn =>
                 {
-                    Assert.IsTrue(cursor.TryPut(ref key, ref value, CursorPutOptions.NoOverwrite));
-                }
+                    var key = new DirectBuffer(values);
+                    var value = new DirectBuffer(values);
+                    DirectBuffer value2 = default;
 
-                using (var cursor = db.OpenCursor(txn))
-                {
-                    Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
-                }
+                    using (var cursor = db.OpenCursor(txn))
+                    {
+                        Assert.IsTrue(cursor.TryPut(ref key, ref value, CursorPutOptions.NoOverwrite));
+                    }
 
-                Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
-                txn.Commit();
-                return Task.CompletedTask;
-            }, false).ConfigureAwait(false);
+                    using (var cursor = db.OpenCursor(txn))
+                    {
+                        Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
+                    }
+
+                    Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
+                    txn.Commit();
+                    return Task.CompletedTask;
+                }, false).ConfigureAwait(false);
+            }
 
             await env.Close();
         }
@@ -171,6 +173,7 @@ namespace Spreads.LMDB.Tests
             var stat = env.GetStat();
             var dbstat = db.GetStat();
             Console.WriteLine("Oveflow pages: " + stat.ms_overflow_pages);
+            db.Dispose();
             env.Close().Wait();
         }
 
@@ -207,7 +210,7 @@ namespace Spreads.LMDB.Tests
 
                 txn.Commit();
             });
-
+            db.Dispose();
             env.Close().Wait();
         }
 
@@ -243,7 +246,7 @@ namespace Spreads.LMDB.Tests
                     txn.Commit();
                 }, false);
             }
-
+            db.Dispose();
             env.Close().Wait();
         }
 
@@ -308,7 +311,7 @@ namespace Spreads.LMDB.Tests
 
                 return true;
             });
-
+            db.Dispose();
             await env.Close();
         }
 
@@ -364,7 +367,7 @@ namespace Spreads.LMDB.Tests
 
                 return true;
             });
-
+            db.Dispose();
             await env.Close();
         }
 
@@ -420,7 +423,7 @@ namespace Spreads.LMDB.Tests
 
                 return true;
             });
-
+            db.Dispose();
             env.Close().Wait();
         }
 
@@ -464,7 +467,7 @@ namespace Spreads.LMDB.Tests
             handle.Dispose();
 
             Benchmark.Dump();
-
+            db.Dispose();
             await env.Close();
         }
 
@@ -552,7 +555,7 @@ namespace Spreads.LMDB.Tests
                     Console.WriteLine("Key0 value: " + value);
                 }
             }
-
+            db.Dispose();
             await env.Close();
         }
 
@@ -613,7 +616,7 @@ namespace Spreads.LMDB.Tests
             // handle.Dispose();
 
             Benchmark.Dump();
-
+            db.Dispose();
             await env.Close();
         }
 
@@ -824,7 +827,7 @@ namespace Spreads.LMDB.Tests
                     Console.WriteLine($"Pointers {i}: {changedPointers[i]} - {finalPointers[i]} - {changedPointers[i].ToInt64() - finalPointers[i].ToInt64()}");
                 }
             }
-
+            db.Dispose();
             await env.Close();
         }
 
@@ -882,7 +885,7 @@ namespace Spreads.LMDB.Tests
             {
 
             }
-
+            db.Dispose();
             env.Close().Wait();
         }
     }

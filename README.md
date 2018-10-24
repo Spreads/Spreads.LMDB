@@ -1,3 +1,5 @@
+[![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3)
+
 # Spreads.LMDB
 
 Low-level zero-overhead and [the fastest](https://github.com/Spreads/Spreads.LMDB/commit/4085dde649ef9ebb64310f2627299762dd62d5ce) LMDB .NET wrapper with some additional native 

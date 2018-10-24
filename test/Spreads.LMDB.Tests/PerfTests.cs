@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-using KdSoft.Lmdb;
 using NUnit.Framework;
 using Spreads.Utils;
 using System;
@@ -15,7 +14,7 @@ namespace Spreads.LMDB.Tests
     [TestFixture]
     public class PerfTests
     {
-        [Test]
+        [Test, Explicit("long running")]
         public unsafe void SimpleWriteReadBenchmark()
         {
 #pragma warning disable 618
@@ -25,7 +24,7 @@ namespace Spreads.LMDB.Tests
             var count = 1_00_000;
             var rounds = 10;
 
-            var path = "./data/benchmark";
+            var path = TestUtils.GetPath();
             if (Directory.Exists(path))
             {
                 Directory.Delete(path, true);
@@ -42,18 +41,6 @@ namespace Spreads.LMDB.Tests
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
             var dbS = envS.OpenDatabase("SimpleWrite", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
-
-            var envConfig = new EnvironmentConfiguration(10, mapSize: 256 * 1024 * 1024);
-            var envK = new KdSoft.Lmdb.Environment(envConfig);
-            envK.Open(dirK, EnvironmentOptions.NoSync);
-
-            var config = new DatabaseConfiguration(DatabaseOptions.Create | DatabaseOptions.IntegerKey);
-            KdSoft.Lmdb.Database dbase;
-            using (var tx = envK.BeginDatabaseTransaction(TransactionModes.None))
-            {
-                dbase = tx.OpenDatabase("SimpleWrite", config);
-                tx.Commit();
-            }
 
             for (int r = 0; r < rounds; r++)
             {
@@ -84,47 +71,16 @@ namespace Spreads.LMDB.Tests
                     }
                 }
 
-                using (Benchmark.Run("KdSoft Write", count, true))
-                {
-                    for (long i = r * count; i < (r + 1) * count; i++)
-                    {
-                        var ptr = Unsafe.AsPointer(ref i);
-                        var span = new Span<byte>(ptr, 8);
-
-                        using (var tx = envK.BeginTransaction(TransactionModes.None))
-                        {
-                            dbase.Put(tx, span, span, PutOptions.AppendData);
-                            tx.Commit();
-                        }
-                    }
-                }
-
-                using (Benchmark.Run("KdSoft Read", count, true))
-                {
-                    for (long i = r * count; i < (r + 1) * count; i++)
-                    {
-                        var ptr = Unsafe.AsPointer(ref i);
-                        var span = new Span<byte>(ptr, 8);
-
-                        using (var tx = envK.BeginReadOnlyTransaction())
-                        {
-                            dbase.Get(tx, span, out var data);
-                            var val = MemoryMarshal.Cast<byte, long>(data)[0];
-                            if (val != i)
-                            {
-                                Assert.Fail();
-                            }
-                        }
-                    }
-                }
+                
+                
             }
-
+            dbS.Dispose();
             envS.Close();
-            envK.Close();
+           
             Benchmark.Dump("SimpleWrite/Read 10x1M longs");
         }
 
-        [Test]
+        [Test, Explicit("long running")]
         public unsafe void SimpleWriteReadBatchedBenchmark()
         {
 #pragma warning disable 618
@@ -133,7 +89,7 @@ namespace Spreads.LMDB.Tests
             var count = 1_00_000;
             var rounds = 10;
 
-            var path = "./data/benchmarkbatched";
+            var path = TestUtils.GetPath();
             if (Directory.Exists(path))
             {
                 Directory.Delete(path, true);
@@ -150,17 +106,7 @@ namespace Spreads.LMDB.Tests
             envS.Open();
             var dbS = envS.OpenDatabase("SimpleWrite", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
 
-            var envConfig = new EnvironmentConfiguration(10, mapSize: 256 * 1024 * 1024);
-            var envK = new KdSoft.Lmdb.Environment(envConfig);
-            envK.Open(dirK, EnvironmentOptions.NoSync);
-
-            var config = new DatabaseConfiguration(DatabaseOptions.Create | DatabaseOptions.IntegerKey);
-            KdSoft.Lmdb.Database dbase;
-            using (var tx = envK.BeginDatabaseTransaction(TransactionModes.None))
-            {
-                dbase = tx.OpenDatabase("SimpleWrite", config);
-                tx.Commit();
-            }
+            
 
             // var garbage1 = new byte[1];
 
@@ -198,57 +144,22 @@ namespace Spreads.LMDB.Tests
                     }
                 }
 
-                using (Benchmark.Run("KdSoft Write", count, true))
-                {
-                    using (var tx = envK.BeginTransaction(TransactionModes.None))
-                    {
-                        for (long i = r * count; i < (r + 1) * count; i++)
-                        {
-                            var ptr = Unsafe.AsPointer(ref i);
-                            var span = new Span<byte>(ptr, 8);
-
-                            dbase.Put(tx, span, span, PutOptions.AppendData);
-                        }
-                        tx.Commit();
-                    }
-                }
-
-                using (Benchmark.Run("KdSoft Read", count * extraRounds, true))
-                {
-                    using (var tx = envK.BeginReadOnlyTransaction())
-                    {
-                        for (long j = 0; j < extraRounds; j++)
-                        {
-                            for (long i = r * count; i < (r + 1) * count; i++)
-                            {
-                                var ptr = Unsafe.AsPointer(ref i);
-                                var span = new Span<byte>(ptr, 8);
-
-                                dbase.Get(tx, span, out var data);
-                                var val = MemoryMarshal.Cast<byte, long>(data)[0];
-                                if (val != i)
-                                {
-                                    Assert.Fail();
-                                }
-                            }
-                        }
-                    }
-                }
+                
+                
             }
-
+            dbS.Dispose();
             envS.Close();
-            envK.Close();
             Benchmark.Dump("SimpleBatchedWrite/Read 10x1M longs");
             // Console.WriteLine(garbage1[0]);
         }
 
-        [Test]
+        [Test, Explicit("long running")]
         public void DiskSyncWriteRead()
         {
-            var count = 5_000;
+            var count = 5_00;
             var rounds = 1;
 
-            var path = "./data/benchmark";
+            var path = TestUtils.GetPath();
             if (Directory.Exists(path))
             {
                 Directory.Delete(path, true);
@@ -295,7 +206,7 @@ namespace Spreads.LMDB.Tests
                     }
                 }
             }
-
+            dbS.Dispose();
             envS.Close();
             Benchmark.Dump("Writes in single OPS");
         }

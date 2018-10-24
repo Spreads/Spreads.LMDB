@@ -193,7 +193,8 @@ namespace Spreads.LMDB
                         return;
                     }
 
-                    ReleaseHandle();
+                    NativeMethods.mdb_txn_abort(handle);
+                    handle = IntPtr.Zero;
                 }
                 else
                 {
@@ -351,7 +352,8 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotActiveOnAbort();
             }
-            ReleaseHandle();
+            NativeMethods.mdb_txn_abort(handle);
+            handle = IntPtr.Zero;
             _state = TransactionState.Aborted;
         }
 
