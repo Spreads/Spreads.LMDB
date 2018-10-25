@@ -81,7 +81,7 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Renew()
         {
-            _impl.Reset();
+            _impl.Renew();
         }
     }
 
@@ -95,7 +95,7 @@ namespace Spreads.LMDB
 
         #region Lifecycle
 
-        private static readonly ObjectPool<TransactionImpl> TxPool =
+        internal static readonly ObjectPool<TransactionImpl> TxPool =
             new ObjectPool<TransactionImpl>(() => new TransactionImpl(), Environment.ProcessorCount * 16);
 
         private TransactionImpl() : base(IntPtr.Zero, true)
@@ -119,10 +119,15 @@ namespace Spreads.LMDB
                 {
                     tx = TxPool.Allocate();
                     tx._isReadOnly = true;
+                    if (tx._state != TransactionState.Disposed)
+                    {
+                        ThrowShoudBeDisposed();
+                    }
                 }
                 else
                 {
                     Debug.Assert(tx._isReadOnly);
+                    Debug.Assert(tx._state == TransactionState.Reset);
                 }
 
                 if (tx.IsInvalidFast)
@@ -146,11 +151,10 @@ namespace Spreads.LMDB
                     lmdbEnvironment._handle.Handle,
                     IntPtr.Zero, beginFlags, out IntPtr handle));
                 tx.handle = handle;
-            }
-
-            if (tx._state != TransactionState.Disposed)
-            {
-                ThrowShoudBeDisposed();
+                if (tx._state != TransactionState.Disposed)
+                {
+                    ThrowShoudBeDisposed();
+                }
             }
 
             tx._lmdbEnvironment = lmdbEnvironment;
@@ -186,13 +190,15 @@ namespace Spreads.LMDB
                 if (disposing)
                 {
                     NativeMethods.mdb_txn_reset(handle);
+                    _state = TransactionState.Reset;
                     var pooled = _lmdbEnvironment.ReadTxnPool.Return(this);
                     if (pooled)
                     {
-                        Debug.Assert(_state == TransactionState.Disposed); // set above
+                        Debug.Assert(_state == TransactionState.Reset); // set above
                         return;
                     }
 
+                    _state = TransactionState.Disposed;
                     NativeMethods.mdb_txn_abort(handle);
                     handle = IntPtr.Zero;
                 }
@@ -283,6 +289,12 @@ namespace Spreads.LMDB
         //    [MethodImpl(MethodImplOptions.AggressiveInlining)]
         //    get => handle;
         //}
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowShoudBeReset()
+        {
+            throw new InvalidOperationException("Pooled RO tx must be in reset state");
+        }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void ThrowShoudBeDisposed()
@@ -379,6 +391,10 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotResetOnRenew();
             }
+            if (!_isReadOnly)
+            {
+                ThrowTxNotReadonlyOnRenew();
+            }
             NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(handle));
             _state = TransactionState.Active;
         }
@@ -405,6 +421,12 @@ namespace Spreads.LMDB
         private static void ThrowTxNotReadonlyOnReset()
         {
             throw new InvalidOperationException("Transaction is not readonly on reset");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ThrowTxNotReadonlyOnRenew()
+        {
+            throw new InvalidOperationException("Transaction is not readonly on renew");
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

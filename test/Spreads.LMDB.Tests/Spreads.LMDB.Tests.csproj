@@ -14,6 +14,7 @@
         <StartupObject />
     </PropertyGroup>
     <ItemGroup>
+        <PackageReference Include="KdSoft.Lmdb" Version="1.0.1" />
         <PackageReference Include="Microsoft.CSharp" Version="4.5.0" />
         <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.8.0-preview-20180510-03" />

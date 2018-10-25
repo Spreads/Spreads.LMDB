@@ -10,7 +10,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Spreads.LMDB.Utils;
+using Spreads.Collections.Concurrent;
 
 namespace Spreads.LMDB
 {
@@ -196,7 +196,7 @@ namespace Spreads.LMDB
             _isOpen = true;
             var maxPooledReaders = Math.Max(16, Math.Min(Environment.ProcessorCount * 2, MaxReaders - Environment.ProcessorCount * 2));
             var poolSize = _disableReadTxnAutoreset ? 1 : maxPooledReaders;
-            ReadTxnPool = new LockedObjectPool<TransactionImpl>(poolSize);
+            ReadTxnPool = new LockedObjectPool<TransactionImpl>(poolSize, () => { return null; }, false);
         }
 
         public bool AutoCommit { get; set; } = false;
@@ -429,11 +429,7 @@ namespace Spreads.LMDB
                     Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
                 }
 
-                TransactionImpl txn;
-                while ((txn = ReadTxnPool.Rent()) != null)
-                {
-                    txn.Dispose();
-                }
+                ReadTxnPool.Dispose();
 
                 _cts.Cancel();
                 // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
