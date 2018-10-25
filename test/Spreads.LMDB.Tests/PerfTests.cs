@@ -141,7 +141,7 @@ namespace Spreads.LMDB.Tests
 #pragma warning restore 618
             var count = 1_000_000;
             var rounds = 1;
-            var extraRounds = 10;
+            var extraRounds = 1;
 
             var path = "./data/benchmarkbatched";
             if (Directory.Exists(path))
