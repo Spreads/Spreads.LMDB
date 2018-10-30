@@ -9,6 +9,8 @@ using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Spreads.Buffers;
+using Spreads.Serialization;
 
 namespace Spreads.LMDB.Tests
 {
@@ -133,6 +135,47 @@ namespace Spreads.LMDB.Tests
             Benchmark.Dump("SimpleWrite/Read 10x1M longs");
         }
 
+        //public unsafe long TouchSpace(int megabytes = 0)
+        //{
+        //    EnsureOpened();
+        //    int size = 0;
+        //    if (megabytes == 0)
+        //    {
+        //        var used = UsedSize;
+        //        size = (int)((MapSize - used) / 2);
+        //        if (size == 0)
+        //        {
+        //            return used;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        size = megabytes * 1024 * 1024;
+        //    }
+        //    if (megabytes * 1024 * 1024 > MapSize)
+        //    {
+        //        throw new InvalidOperationException("Canno touch space above MapSize");
+        //    }
+        //    var db = OpenDatabase("__touch_space___", new DatabaseConfig(DbFlags.Create));
+        //    using (var txn = BeginTransaction(TransactionBeginFlags.NoSync))
+        //    {
+        //        var key = 0;
+        //        var keyPtr = Unsafe.AsPointer(ref key);
+        //        var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (byte*)keyPtr);
+        //        DirectBuffer value = new DirectBuffer(size, (byte*)IntPtr.Zero);
+        //        db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
+        //        txn.Commit();
+        //    }
+
+        //    using (var txn = BeginTransaction(TransactionBeginFlags.NoSync))
+        //    {
+        //        db.Truncate(txn);
+        //        db.Drop(txn);
+        //    }
+        //    db.Dispose();
+        //    return UsedSize;
+        //}
+
         [Test, Explicit("long running")]
         public unsafe void SimpleWriteReadBatchedBenchmark()
         {
@@ -158,7 +201,32 @@ namespace Spreads.LMDB.Tests
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
+            // envS.TouchSpace();
+
             var dbS = envS.OpenDatabase("SimpleWrite", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
+
+            for (int i = 0; i < 2; i++)
+            {
+                using (var txn = envS.BeginTransaction(TransactionBeginFlags.NoSync))
+                {
+                    var key = 0L;
+                    var keyPtr = Unsafe.AsPointer(ref key);
+                    var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (byte*)keyPtr);
+                    DirectBuffer value = new DirectBuffer(32 * 1024 * 1024, (byte*)IntPtr.Zero);
+                    dbS.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
+                    txn.Commit();
+                }
+
+                using (var txn = envS.BeginTransaction(TransactionBeginFlags.NoSync))
+                {
+                    var key = 0L;
+                    var keyPtr = Unsafe.AsPointer(ref key);
+                    var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (byte*)keyPtr);
+                    dbS.Delete(txn, ref key1);
+                    txn.Commit();
+                }
+            }
+            
 
             var envConfig = new EnvironmentConfiguration(10, mapSize: 256 * 1024 * 1024);
             var envK = new KdSoft.Lmdb.Environment(envConfig);
@@ -176,7 +244,7 @@ namespace Spreads.LMDB.Tests
 
             for (int r = 0; r < rounds; r++)
             {
-                // using (Benchmark.Run("Spreads Write", count, true))
+                using (Benchmark.Run("Spreads Write", count, true))
                 {
                     using (var tx = envS.BeginTransaction())
                     {
@@ -208,7 +276,7 @@ namespace Spreads.LMDB.Tests
                     }
                 }
 
-                // using (Benchmark.Run("KdSoft Write", count, true))
+                using (Benchmark.Run("KdSoft Write", count, true))
                 {
                     using (var tx = envK.BeginTransaction(TransactionModes.None))
                     {

@@ -25,7 +25,7 @@ namespace Spreads.LMDB.Tests.Run
 
             var tests = new PerfTests();
 
-            tests.SimpleWriteReadBenchmark();
+            tests.SimpleWriteReadBatchedBenchmark();
 
             Console.WriteLine("Finished");
             Console.ReadLine();

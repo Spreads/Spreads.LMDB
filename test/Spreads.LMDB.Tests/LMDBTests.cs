@@ -30,6 +30,32 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
+
+        //[Test]
+        //public void CouldTouchSpace()
+        //{
+        //    // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
+        //    Console.WriteLine(LMDBVersionInfo.Version);
+        //    var env = LMDBEnvironment.Create(TestUtils.GetPath());
+        //    env.MapSize = 10 * 1024 * 1024;
+        //    env.Open();
+        //    var used = env.TouchSpace(5);
+        //    var stat = env.GetStat();
+        //    Console.WriteLine("Used size: " + used);
+        //    env.Close().Wait();
+
+        //    Console.WriteLine("Touch default: ");
+
+        //    Console.WriteLine(LMDBVersionInfo.Version);
+        //    env = LMDBEnvironment.Create(TestUtils.GetPath());
+        //    env.MapSize = 10 * 1024 * 1024;
+        //    env.Open();
+        //    used = env.TouchSpace();
+        //    stat = env.GetStat();
+        //    Console.WriteLine("Used size: " + used);
+        //    env.Close().Wait();
+        //}
+
         [Test, Ignore("")]
         public async Task CouldCreateManyEnvironment()
         {
