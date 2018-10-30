@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 using Spreads.Buffers;
+using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using System;
 using System.Collections.Concurrent;
@@ -10,7 +11,6 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Spreads.Collections.Concurrent;
 
 namespace Spreads.LMDB
 {
@@ -578,7 +578,6 @@ namespace Spreads.LMDB
         {
             get
             {
-                Flush(true);
                 var info = GetEnvInfo();
                 return info.me_last_pgno.ToInt32() * PageSize;
             }
