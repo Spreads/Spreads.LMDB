@@ -12,6 +12,8 @@ REM echo fullstamp: "%fullstamp%"
 set "build=build%fullstamp%"
 echo build: "%build%"
 
+dotnet test ..\test\Spreads.LMDB.Tests\Spreads.LMDB.Tests.csproj -c Release -v n
+
 dotnet restore ..\src\Spreads.LMDB
 dotnet pack ..\src\Spreads.LMDB -c RELEASE -o C:\tools\LocalNuget --version-suffix "%build%"
 
