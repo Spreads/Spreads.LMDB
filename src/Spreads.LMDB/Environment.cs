@@ -579,7 +579,7 @@ namespace Spreads.LMDB
             get
             {
                 var info = GetEnvInfo();
-                return info.me_last_pgno.ToInt32() * PageSize;
+                return info.me_last_pgno.ToInt64() * PageSize;
             }
         }
 
