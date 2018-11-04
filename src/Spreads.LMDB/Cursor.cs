@@ -9,6 +9,7 @@ using Spreads.Serialization;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using static System.Runtime.CompilerServices.Unsafe;
 
 namespace Spreads.LMDB
@@ -296,7 +297,9 @@ namespace Spreads.LMDB
                 NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn.Handle, db._handle, out IntPtr handle));
                 c._writeHandle = handle;
             }
-
+#if DEBUG
+            Interlocked.Increment(ref txn._cursorCount);
+#endif
             return c;
         }
 
@@ -333,6 +336,9 @@ namespace Spreads.LMDB
             }
 
             _database = null;
+#if DEBUG
+            Interlocked.Decrement(ref _transaction._cursorCount);
+#endif
             _transaction = null;
             if (disposing)
             {
@@ -377,8 +383,8 @@ namespace Spreads.LMDB
             var res = TryFind(direction, ref key1, out DirectBuffer value1);
             if (res)
             {
-                key = ReadUnaligned<TKey>((byte*)key1.Data);
-                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                key = ReadUnaligned<TKey>(key1.Data);
+                value = ReadUnaligned<TValue>(value1.Data);
                 return true;
             }
             value = default;
@@ -450,8 +456,8 @@ namespace Spreads.LMDB
             var res = TryFindDup(direction, ref key1, ref value1);
             if (res)
             {
-                key = ReadUnaligned<TKey>((byte*)key1.Data);
-                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                key = ReadUnaligned<TKey>(key1.Data);
+                value = ReadUnaligned<TValue>(value1.Data);
                 return true;
             }
             return false;
@@ -522,8 +528,8 @@ namespace Spreads.LMDB
             var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             if (TryGet(ref key1, ref value1, operation))
             {
-                key = ReadUnaligned<TKey>((byte*)key1.Data);
-                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                key = ReadUnaligned<TKey>(key1.Data);
+                value = ReadUnaligned<TValue>(value1.Data);
                 return true;
             }
             return false;
@@ -567,8 +573,8 @@ namespace Spreads.LMDB
             var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             if (TryPut(ref key1, ref value1, options))
             {
-                key = ReadUnaligned<TKey>((byte*)key1.Data);
-                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                key = ReadUnaligned<TKey>(key1.Data);
+                value = ReadUnaligned<TValue>(value1.Data);
                 return true;
             }
             return false;
@@ -591,8 +597,8 @@ namespace Spreads.LMDB
             var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
             var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
             Put(ref key1, ref value1, options);
-            key = ReadUnaligned<TKey>((byte*)key1.Data);
-            value = ReadUnaligned<TValue>((byte*)value1.Data);
+            key = ReadUnaligned<TKey>(key1.Data);
+            value = ReadUnaligned<TValue>(value1.Data);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

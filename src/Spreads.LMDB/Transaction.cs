@@ -29,6 +29,12 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Commit()
         {
+#if DEBUG
+            if (_impl._cursorCount > 0)
+            {
+                Environment.FailFast("Transaction has outstanding cursors that must be closed before Commit.");
+            }
+#endif
             _impl.Commit();
         }
 
@@ -40,12 +46,24 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Abort()
         {
+#if DEBUG
+            if (_impl._cursorCount > 0)
+            {
+                Environment.FailFast("Transaction has outstanding cursors that must be closed before Abort.");
+            }
+#endif
             _impl.Abort();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
+#if DEBUG
+            if (_impl._cursorCount > 0)
+            {
+                Environment.FailFast("Transaction has outstanding cursors that must be closed before Dispose.");
+            }
+#endif
             _impl.Dispose();
         }
 
@@ -69,12 +87,24 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
+#if DEBUG
+            if (_impl._cursorCount > 0)
+            {
+                Environment.FailFast("Transaction has outstanding cursors that must be closed before Dispose.");
+            }
+#endif
             _impl.Dispose();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Reset()
         {
+#if DEBUG
+            if (_impl._cursorCount > 0)
+            {
+                Environment.FailFast("Transaction has outstanding cursors that must be closed before Reset.");
+            }
+#endif
             _impl.Reset();
         }
 
@@ -94,6 +124,11 @@ namespace Spreads.LMDB
         private TransactionState _state;
 
         #region Lifecycle
+
+#if DEBUG
+        public string StackTrace;
+        internal int _cursorCount;
+#endif
 
         internal static readonly ObjectPool<TransactionImpl> TxPool =
             new ObjectPool<TransactionImpl>(() => new TransactionImpl(), Environment.ProcessorCount * 16);
@@ -159,6 +194,10 @@ namespace Spreads.LMDB
 
             tx._lmdbEnvironment = lmdbEnvironment;
             tx._state = TransactionState.Active;
+
+#if DEBUG
+            tx.StackTrace = Environment.StackTrace;
+#endif
             return tx;
         }
 
@@ -204,7 +243,11 @@ namespace Spreads.LMDB
                 }
                 else
                 {
+#if DEBUG
+                    Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly. " + StackTrace);
+#else
                     Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly.");
+#endif
                     base.Dispose(false);
                 }
             }
@@ -235,13 +278,21 @@ namespace Spreads.LMDB
                     }
                     else
                     {
+#if DEBUG
+                        Trace.TraceWarning("Finalizing finished write transaction. Dispose it explicitly. " + StackTrace);
+#else
                         Trace.TraceWarning("Finalizing finished write transaction. Dispose it explicitly.");
+#endif
                     }
                 }
                 handle = IntPtr.Zero;
             }
 
             _lmdbEnvironment = null;
+
+#if DEBUG
+            StackTrace = null;
+#endif
 
             if (disposing)
             {
@@ -282,18 +333,6 @@ namespace Spreads.LMDB
         internal void SetNewHandle(IntPtr newHandle)
         {
             SetHandle(newHandle);
-        }
-
-        //internal IntPtr Handle
-        //{
-        //    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //    get => handle;
-        //}
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowShoudBeReset()
-        {
-            throw new InvalidOperationException("Pooled RO tx must be in reset state");
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

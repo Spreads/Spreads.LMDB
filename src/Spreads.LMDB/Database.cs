@@ -237,7 +237,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Put<TKey, TValue>(Transaction txn, TKey key, TValue value,
+        public void Put<TKey, TValue>(Transaction txn, TKey key, TValue value,
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
@@ -295,7 +295,7 @@ namespace Spreads.LMDB
         /// Delete key/value at key or all dupsort values if db supports dupsorted
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Delete<T>(Transaction txn, T key)
+        public void Delete<T>(Transaction txn, T key)
             where T : struct
         {
             var keyPtr = AsPointer(ref key);
@@ -315,7 +315,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Delete<T>(Transaction txn, DirectBuffer key, T value)
+        public void Delete<T>(Transaction txn, DirectBuffer key, T value)
             where T : struct
         {
             var valuePtr = AsPointer(ref value);
@@ -324,7 +324,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Delete<T>(Transaction txn, T key, DirectBuffer value)
+        public void Delete<T>(Transaction txn, T key, DirectBuffer value)
             where T : struct
         {
             var keyPtr = AsPointer(ref key);
@@ -333,7 +333,7 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Delete<TKey, TValue>(Transaction txn, TKey key, TValue value)
+        public void Delete<TKey, TValue>(Transaction txn, TKey key, TValue value)
             where TKey : struct where TValue : struct
         {
             var keyPtr = AsPointer(ref key);
@@ -361,7 +361,7 @@ namespace Spreads.LMDB
 
             if (TryGet(txn, ref key, out var valueDb))
             {
-                value = ReadUnaligned<T>((byte*)valueDb.Data);
+                value = ReadUnaligned<T>(valueDb.Data);
                 return true;
             }
 
@@ -405,8 +405,8 @@ namespace Spreads.LMDB
             var res = TryFindDup(txn, direction, ref key1, ref value1);
             if (res)
             {
-                key = ReadUnaligned<TKey>((byte*)key1.Data);
-                value = ReadUnaligned<TValue>((byte*)value1.Data);
+                key = ReadUnaligned<TKey>(key1.Data);
+                value = ReadUnaligned<TValue>(value1.Data);
                 return true;
             }
             return false;
@@ -541,37 +541,6 @@ namespace Spreads.LMDB
             }
         }
 
-        private IEnumerable<DirectBuffer> AsEnumerable(Transaction txn, RetainedMemory<byte> key)
-        {
-            if (((int)OpenFlags & (int)DbFlags.DuplicatesSort) == 0)
-            {
-                throw new InvalidOperationException("AsEnumerable overload with key parameter should only be provided for dupsorted dbs");
-            }
-
-            try
-            {
-                var key1 = new DirectBuffer(key.Span);
-                DirectBuffer value = default;
-                using (var c = OpenReadOnlyCursor(txn))
-                {
-                    if (c.TryGet(ref key1, ref value, CursorGetOption.SetKey) &&
-                        c.TryGet(ref key1, ref value, CursorGetOption.FirstDuplicate))
-                    {
-                        yield return value;
-                    }
-
-                    while (c.TryGet(ref key1, ref value, CursorGetOption.NextDuplicate))
-                    {
-                        yield return value;
-                    }
-                }
-            }
-            finally
-            {
-                key.Dispose();
-            }
-        }
-
         /// <summary>
         /// Iterate over dupsorted values by key.
         /// </summary>
@@ -582,7 +551,7 @@ namespace Spreads.LMDB
                 throw new InvalidOperationException("AsEnumerable overload with key parameter should only be provided for dupsorted dbs");
             }
 
-            var fixedMemory = BufferPool.Retain(checked((int)key.Length), true);
+            var fixedMemory = BufferPool.Retain(key.Length, true);
             key.Span.CopyTo(fixedMemory.Span);
             return AsEnumerable(txn, fixedMemory);
         }
@@ -590,7 +559,7 @@ namespace Spreads.LMDB
         /// <summary>
         /// Iterate over dupsorted values by key.
         /// </summary>
-        public unsafe IEnumerable<DirectBuffer> AsEnumerable<T>(ReadOnlyTransaction txn, T key)
+        public IEnumerable<DirectBuffer> AsEnumerable<T>(ReadOnlyTransaction txn, T key)
         {
             var keyPtr = AsPointer(ref key);
             var keyLength = TypeHelper<T>.EnsureFixedSize();
@@ -603,7 +572,7 @@ namespace Spreads.LMDB
         /// <summary>
         /// Iterate over dupsorted values by key.
         /// </summary>
-        public unsafe IEnumerable<TValue> AsEnumerable<TKey, TValue>(ReadOnlyTransaction txn, TKey key)
+        public IEnumerable<TValue> AsEnumerable<TKey, TValue>(ReadOnlyTransaction txn, TKey key)
         {
             var keyPtr = AsPointer(ref key);
             var keyLength = TypeHelper<TKey>.EnsureFixedSize();

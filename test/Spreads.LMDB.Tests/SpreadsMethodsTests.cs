@@ -1176,6 +1176,7 @@ namespace Spreads.LMDB.Tests
                     var searchValue = new MyDupSorted() { Key = ulong.MaxValue };
                     var found = c.TryFindDup(Lookup.LT, ref nodupKey, ref searchValue);
                     Assert.IsTrue(found);
+                    c.Dispose();
                 }
             }
             db.Dispose();
