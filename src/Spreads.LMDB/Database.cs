@@ -310,6 +310,11 @@ namespace Spreads.LMDB
             {
                 throw new InvalidOperationException("Value parameter should only be provided for dupsorted dbs");
             }
+
+            if (!value.IsValid)
+            {
+                throw new InvalidOperationException("Value is invalid");
+            }
             NativeMethods.AssertExecute(NativeMethods.mdb_del(txn._impl.Handle, _handle,
                 in key, in value));
         }
