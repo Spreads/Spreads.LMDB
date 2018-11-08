@@ -19,7 +19,7 @@ namespace Spreads.LMDB.Interop
         internal IntPtr Handle
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return handle; }
+            get => handle;
         }
 
         protected override bool ReleaseHandle() {

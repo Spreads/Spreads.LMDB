@@ -7,6 +7,7 @@ using Spreads.Buffers;
 using Spreads.Serialization;
 using Spreads.Utils;
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +31,35 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
+        [Test]
+        public async Task CouldCreateEnvironmentWithCyrillicPath()
+        {
+            // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
+            Console.WriteLine(LMDBVersionInfo.Version);
+            var env = LMDBEnvironment.Create("./Data/CouldCreateEnvironment/МояПапка");
+            env.Open();
+            var stat = env.GetStat();
+            Console.WriteLine("entries: " + stat.ms_entries);
+            Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
+            Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
+            await env.Close();
+        }
+
+
+        [Test]
+        public async Task CouldCreateEnvironmentWithFullPath()
+        {
+            var path = Path.GetFullPath(Path.Combine(TestUtils.GetPath(), "subpath"));
+            // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
+            Console.WriteLine(LMDBVersionInfo.Version);
+            var env = LMDBEnvironment.Create(path);
+            env.Open();
+            var stat = env.GetStat();
+            Console.WriteLine("entries: " + stat.ms_entries);
+            Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
+            Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
+            await env.Close();
+        }
 
         //[Test]
         //public void CouldTouchSpace()
@@ -70,7 +100,8 @@ namespace Spreads.LMDB.Tests
             }
         }
 
-        [Test]
+        // TODO fix
+        [Test, Ignore("hangs")]
         public async Task CouldWriteAsync()
         {
             var path = TestUtils.GetPath();

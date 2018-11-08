@@ -49,16 +49,16 @@ namespace Spreads.LMDB.Interop
         public static extern void mdb_env_close(EnvironmentHandle env);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_env_open(IntPtr env, string path, DbEnvironmentFlags flags, UnixAccessMode mode);
+        public static extern int mdb_env_open(IntPtr env, IntPtr path, DbEnvironmentFlags flags, UnixAccessMode mode);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_env_open(EnvironmentHandle env, string path, DbEnvironmentFlags flags, UnixAccessMode mode);
+        public static extern int mdb_env_open(EnvironmentHandle env, IntPtr path, DbEnvironmentFlags flags, UnixAccessMode mode);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_env_open(IntPtr env, string path, DbEnvironmentFlags flags, int mode);
+        public static extern int mdb_env_open(IntPtr env, IntPtr path, DbEnvironmentFlags flags, int mode);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_env_open(EnvironmentHandle env, string path, DbEnvironmentFlags flags, int mode);
+        public static extern int mdb_env_open(EnvironmentHandle env, IntPtr path, DbEnvironmentFlags flags, int mode);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_env_set_mapsize(IntPtr env, IntPtr size);
@@ -127,13 +127,13 @@ namespace Spreads.LMDB.Interop
         public static extern int mdb_stat(IntPtr txn, uint dbi, out MDB_stat stat);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_env_copy(IntPtr env, string path);
+        public static extern int mdb_env_copy(IntPtr env, IntPtr path);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_env_copy2(IntPtr env, string path, EnvironmentCopyFlags copyFlags);
+        public static extern int mdb_env_copy2(IntPtr env, IntPtr path, EnvironmentCopyFlags copyFlags);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int mdb_env_copy2(EnvironmentHandle env, string path, EnvironmentCopyFlags copyFlags);
+        public static extern int mdb_env_copy2(EnvironmentHandle env, IntPtr path, EnvironmentCopyFlags copyFlags);
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_env_info(IntPtr env, out MDB_envinfo stat);

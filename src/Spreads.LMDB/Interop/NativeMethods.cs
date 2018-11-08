@@ -2,7 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 
 // ReSharper disable InconsistentNaming
 
@@ -122,6 +125,29 @@ namespace Spreads.LMDB.Interop
         private static void ThrowLMDBEx(int res)
         {
             throw new LMDBException(res);
+        }
+
+        public static IntPtr StringToHGlobalUTF8(string s, out int length)
+        {
+            if (s == null)
+            {
+                length = 0;
+                return IntPtr.Zero;
+            }
+
+            var bytes = Encoding.UTF8.GetBytes(s);
+            var ptr = Marshal.AllocHGlobal(bytes.Length + 1);
+            Marshal.Copy(bytes, 0, ptr, bytes.Length);
+            Marshal.WriteByte(ptr, bytes.Length, 0);
+            length = bytes.Length;
+
+            return ptr;
+        }
+
+        public static IntPtr StringToHGlobalUTF8(string s)
+        {
+            int temp;
+            return StringToHGlobalUTF8(s, out temp);
         }
 
         #endregion Helpers

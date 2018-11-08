@@ -9,6 +9,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -190,7 +191,12 @@ namespace Spreads.LMDB
 
             if (!_isOpen)
             {
-                NativeMethods.AssertExecute(NativeMethods.mdb_env_open(_handle, _directory, _openFlags, _accessMode));
+                var ptr = NativeMethods.StringToHGlobalUTF8(_directory);
+                NativeMethods.AssertExecute(NativeMethods.mdb_env_open(_handle, ptr, _openFlags, _accessMode));
+                if (ptr != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(ptr);
+                }
             }
 
             _isOpen = true;
@@ -653,7 +659,13 @@ namespace Spreads.LMDB
         {
             EnsureOpened();
             var flags = compact ? EnvironmentCopyFlags.Compact : EnvironmentCopyFlags.None;
-            NativeMethods.AssertExecute(NativeMethods.mdb_env_copy2(_handle, path, flags));
+            var ptr = NativeMethods.StringToHGlobalUTF8(path);
+            NativeMethods.AssertExecute(NativeMethods.mdb_env_copy2(_handle, ptr, flags));
+            if (ptr != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
+            
         }
 
         /// <summary>
