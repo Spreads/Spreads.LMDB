@@ -9,6 +9,7 @@ using Spreads.Serialization;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.ConstrainedExecution;
 using System.Threading;
 using static System.Runtime.CompilerServices.Unsafe;
 
@@ -243,17 +244,19 @@ namespace Spreads.LMDB
     /// <summary>
     /// Cursor to iterate over a database
     /// </summary>
-    internal class CursorImpl : ICursor
+    internal class CursorImpl : CriticalFinalizerObject, ICursor
     {
         // Read-only cursors are pooled in Database instances since cursors belog to a DB
         // Here we pool only the objects
 
-        // TODO single handle as IntPtr, model after TxnImpl
+        private IntPtr _handle;
 
-        internal IntPtr _writeHandle;
+        private bool _isReadOnly;
 
-        internal ReadCursorHandle _readHandle;
-        internal bool _forceReadOnly;
+        //internal IntPtr _writeHandle;
+        //internal ReadCursorHandle _readHandle;
+
+        internal bool _forceReadOnlyX;
 
         internal Database _database;
         internal TransactionImpl _transaction;
@@ -269,37 +272,17 @@ namespace Spreads.LMDB
         /// <summary>
         /// Creates new instance of LightningCursor
         /// </summary>
-        internal static CursorImpl Create(Database db, TransactionImpl txn, ReadCursorHandle rh = null)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static CursorImpl Create(Database db, TransactionImpl txn, bool readOnly)
         {
             var c = CursorPool.Allocate();
 
-            c._database = db ?? throw new ArgumentNullException(nameof(db));
-            c._transaction = txn ?? throw new ArgumentNullException(nameof(txn));
+            c._database = db;
+            c._transaction = txn;
+            c._isReadOnly = readOnly;
 
-            if (rh != null)
-            {
-                if (!txn.IsReadOnly)
-                {
-                    TransactionImpl.ThrowTransactionIsNotReadOnly();
-                }
-
-                if (rh.IsInvalid)
-                {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn.Handle, db._handle, out IntPtr handle));
-                    rh.SetNewHandle(handle);
-                }
-                else
-                {
-                    NativeMethods.AssertExecute(NativeMethods.mdb_cursor_renew(txn.Handle, rh.Handle));
-                }
-
-                c._readHandle = rh;
-            }
-            else
-            {
-                NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn.Handle, db._handle, out IntPtr handle));
-                c._writeHandle = handle;
-            }
+            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_open(txn.Handle, db._handle, out IntPtr handle));
+            c._handle = handle;
 #if DEBUG
             Interlocked.Increment(ref txn._cursorCount);
 #endif
@@ -310,42 +293,46 @@ namespace Spreads.LMDB
         /// Closes the cursor and deallocates all resources associated with it.
         /// </summary>
         /// <param name="disposing">True if called from Dispose.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         protected void Dispose(bool disposing)
         {
+#if DEBUG
+            Interlocked.Decrement(ref _transaction._cursorCount);
+#endif
             var isReadOnly = IsReadOnly;
             if (isReadOnly)
             {
                 if (disposing)
                 {
-                    var rh = _readHandle;
-                    _readHandle = null;
-                    _database.ReadCursorHandlePool.Free(rh);
+                    if (_transaction.IsReadOnly)
+                    {
+                        var pooled = _database.ReadCursorPool.Return(this);
+                        if (pooled)
+                        {
+                            return;
+                        }
+                    }
                 }
                 else
                 {
 #if DEBUG
                     Trace.TraceWarning("Finalizing read cursor. Dispose it explicitly.");
 #endif
-                    _readHandle.Dispose();
                 }
             }
-            else
+            else if (!disposing)
             {
-                NativeMethods.mdb_cursor_close(_writeHandle);
-
-                if (!disposing)
-                {
 #if DEBUG
-                    Trace.TraceWarning("Finalizing write cursor. Dispose it explicitly.");
+                Trace.TraceWarning("Finalizing write cursor. Dispose it explicitly.");
 #endif
-                }
-                _writeHandle = IntPtr.Zero;
             }
+
+            NativeMethods.mdb_cursor_close(_handle);
+
+            _handle = IntPtr.Zero;
 
             _database = null;
-#if DEBUG
-            Interlocked.Decrement(ref _transaction._cursorCount);
-#endif
+
             _transaction = null;
             if (disposing)
             {
@@ -355,8 +342,8 @@ namespace Spreads.LMDB
 
         public void Dispose()
         {
-            GC.SuppressFinalize(this);
             Dispose(true);
+            GC.SuppressFinalize(this);
         }
 
         ~CursorImpl()
@@ -366,7 +353,21 @@ namespace Spreads.LMDB
 
         #endregion Lifecycle
 
-        public bool IsReadOnly => _readHandle != null;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void Renew(TransactionImpl txn)
+        {
+            if (!txn.IsReadOnly)
+            {
+                TransactionImpl.ThrowTransactionIsNotReadOnly();
+            }
+            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_renew(txn.Handle, _handle));
+        }
+
+        public bool IsReadOnly
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _isReadOnly;
+        }
 
         /// <summary>
         /// Cursor's environment.
@@ -404,47 +405,35 @@ namespace Spreads.LMDB
             int res = 0;
             value = default;
 
-            switch (direction)
+            if (direction == Lookup.LE)
             {
-                case Lookup.LT:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_lt(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_lt(_writeHandle, ref key, out value)
-                        );
-                    break;
-
-                case Lookup.LE:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_le(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_le(_writeHandle, ref key, out value)
-                    );
-                    break;
-
-                case Lookup.EQ:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_eq(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_eq(_writeHandle, ref key, out value)
-                    );
-                    break;
-
-                case Lookup.GE:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_ge(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_ge(_writeHandle, ref key, out value)
-                    );
-                    break;
-
-                case Lookup.GT:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_gt(_readHandle.Handle, ref key, out value)
-                            : NativeMethods.sdb_cursor_get_gt(_writeHandle, ref key, out value)
-                    );
-                    break;
+                res = NativeMethods.AssertRead(
+                    NativeMethods.sdb_cursor_get_le(_handle, ref key, out value)
+                );
+            }
+            else if (direction == Lookup.GE)
+            {
+                res = NativeMethods.AssertRead(
+                    NativeMethods.sdb_cursor_get_ge(_handle, ref key, out value)
+                );
+            }
+            else if (direction == Lookup.EQ)
+            {
+                res = NativeMethods.AssertRead(
+                    NativeMethods.sdb_cursor_get_eq(_handle, ref key, out value)
+                );
+            }
+            else if (direction == Lookup.LT)
+            {
+                res = NativeMethods.AssertRead(
+                    NativeMethods.sdb_cursor_get_lt(_handle, ref key, out value)
+                );
+            }
+            else if (direction == Lookup.GT)
+            {
+                res = NativeMethods.AssertRead(
+                    NativeMethods.sdb_cursor_get_gt(_handle, ref key, out value)
+                );
             }
 
             return res != NativeMethods.MDB_NOTFOUND;
@@ -475,48 +464,34 @@ namespace Spreads.LMDB
         {
             int res = 0;
 
-            // TODO this method is a good candidate for calli stuff, we have 10 method calls which are very unpredictable.
-
-            // Switch is not inlineable
-            // ReSharper disable once ConvertIfStatementToSwitchStatement
-            if (direction == Lookup.LT)
+            if (direction == Lookup.LE)
             {
                 res = NativeMethods.AssertRead(
-                    IsReadOnly
-                        ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle.Handle, ref key, ref value)
-                        : NativeMethods.sdb_cursor_get_lt_dup(_writeHandle, ref key, ref value)
-                );
-            }
-            else if (direction == Lookup.LE)
-            {
-                res = NativeMethods.AssertRead(
-                    IsReadOnly
-                        ? NativeMethods.sdb_cursor_get_le_dup(_readHandle.Handle, ref key, ref value)
-                        : NativeMethods.sdb_cursor_get_le_dup(_writeHandle, ref key, ref value)
-                );
-            }
-            else if (direction == Lookup.EQ)
-            {
-                res = NativeMethods.AssertRead(
-                    IsReadOnly
-                        ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle.Handle, ref key, ref value)
-                        : NativeMethods.sdb_cursor_get_eq_dup(_writeHandle, ref key, ref value)
+                    NativeMethods.sdb_cursor_get_le_dup(_handle, ref key, ref value)
                 );
             }
             else if (direction == Lookup.GE)
             {
                 res = NativeMethods.AssertRead(
-                    IsReadOnly
-                        ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle.Handle, ref key, ref value)
-                        : NativeMethods.sdb_cursor_get_ge_dup(_writeHandle, ref key, ref value)
+                    NativeMethods.sdb_cursor_get_ge_dup(_handle, ref key, ref value)
+                );
+            }
+            else if (direction == Lookup.EQ)
+            {
+                res = NativeMethods.AssertRead(
+                    NativeMethods.sdb_cursor_get_eq_dup(_handle, ref key, ref value)
+                );
+            }
+            else if (direction == Lookup.LT)
+            {
+                res = NativeMethods.AssertRead(
+                     NativeMethods.sdb_cursor_get_lt_dup(_handle, ref key, ref value)
                 );
             }
             else if (direction == Lookup.GT)
             {
                 res = NativeMethods.AssertRead(
-                    IsReadOnly
-                        ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle.Handle, ref key, ref value)
-                        : NativeMethods.sdb_cursor_get_gt_dup(_writeHandle, ref key, ref value)
+                    NativeMethods.sdb_cursor_get_gt_dup(_handle, ref key, ref value)
                 );
             }
 
@@ -547,9 +522,7 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGet(ref DirectBuffer key, ref DirectBuffer value, CursorGetOption operation)
         {
-            var res = IsReadOnly
-                ? NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_readHandle.Handle, ref key, ref value, operation))
-                : NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_writeHandle, ref key, ref value, operation));
+            var res = NativeMethods.AssertRead(NativeMethods.mdb_cursor_get(_handle, ref key, ref value, operation));
             return res != NativeMethods.MDB_NOTFOUND;
         }
 
@@ -560,7 +533,7 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnsureWriteable()
         {
-            if (!(_readHandle == null && _writeHandle != IntPtr.Zero))
+            if (_isReadOnly || _handle == IntPtr.Zero)
             {
                 ThrowCursorIsReadOnly();
             }
@@ -593,7 +566,7 @@ namespace Spreads.LMDB
         public bool TryPut(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             EnsureWriteable();
-            var res = NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, options);
+            var res = NativeMethods.mdb_cursor_put(_handle, ref key, ref value, options);
             return res == 0;
         }
 
@@ -614,21 +587,21 @@ namespace Spreads.LMDB
         public void Put(ref DirectBuffer key, ref DirectBuffer value, CursorPutOptions options)
         {
             EnsureWriteable();
-            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, options));
+            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_handle, ref key, ref value, options));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(ref DirectBuffer key, ref DirectBuffer value)
         {
             EnsureWriteable();
-            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, CursorPutOptions.NoOverwrite));
+            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_handle, ref key, ref value, CursorPutOptions.NoOverwrite));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Replace(ref DirectBuffer key, ref DirectBuffer value)
         {
             EnsureWriteable();
-            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, CursorPutOptions.Current));
+            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_handle, ref key, ref value, CursorPutOptions.Current));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -636,7 +609,7 @@ namespace Spreads.LMDB
         {
             EnsureWriteable();
             NativeMethods.AssertExecute(
-                NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value,
+                NativeMethods.mdb_cursor_put(_handle, ref key, ref value,
                     dup ? CursorPutOptions.AppendDuplicateData : CursorPutOptions.AppendData));
         }
 
@@ -645,7 +618,7 @@ namespace Spreads.LMDB
         {
             EnsureWriteable();
             if (Database.OpenFlags.HasFlag(DbFlags.DuplicatesSort)) throw new NotSupportedException("Reserve is not supported for DupSort");
-            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_writeHandle, ref key, ref value, CursorPutOptions.ReserveSpace));
+            NativeMethods.AssertExecute(NativeMethods.mdb_cursor_put(_handle, ref key, ref value, CursorPutOptions.ReserveSpace));
         }
 
         #endregion mdb_cursor_put
@@ -675,7 +648,7 @@ namespace Spreads.LMDB
         private bool Delete(CursorDeleteOption option)
         {
             EnsureWriteable();
-            return 0 == NativeMethods.AssertRead(NativeMethods.mdb_cursor_del(_writeHandle, option));
+            return 0 == NativeMethods.AssertRead(NativeMethods.mdb_cursor_del(_handle, option));
         }
 
         /// <summary>
@@ -685,7 +658,7 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ulong Count()
         {
-            NativeMethods.AssertRead(NativeMethods.mdb_cursor_count(_readHandle.Handle, out var result));
+            NativeMethods.AssertRead(NativeMethods.mdb_cursor_count(_handle, out var result));
             return (ulong)result;
         }
 

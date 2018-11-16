@@ -693,7 +693,7 @@ namespace Spreads.LMDB.Tests
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
 
-            var items = 1_000_000;
+            var items = 1_00_000;
             var count = items * 100;
             var counts = new long[count];
             var changedPointers = new IntPtr[count];
@@ -708,7 +708,7 @@ namespace Spreads.LMDB.Tests
 
             var t1 = Task.Run(() =>
             {
-                using (Benchmark.Run("Writer", items * 1000))
+                using (Benchmark.Run("Writer (Kops)", items * 1000))
                 {
                     for (var i = 1; i < items; i++)
                     {

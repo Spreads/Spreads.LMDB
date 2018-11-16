@@ -20,9 +20,7 @@ namespace Spreads.LMDB
     /// </summary>
     public unsafe class Database : IDisposable
     {
-        // TODO use LockedObjectPool, same as in RO Txn pool
-        internal readonly ObjectPool<ReadCursorHandle> ReadCursorHandlePool =
-            new ObjectPool<ReadCursorHandle>(() => new ReadCursorHandle(), System.Environment.ProcessorCount * 16);
+        internal LockedObjectPool<CursorImpl> ReadCursorPool;
 
         internal uint _handle;
         private readonly DatabaseConfig _config;
@@ -87,6 +85,10 @@ namespace Spreads.LMDB
             }
 
             _handle = handle;
+
+            var poolSize = System.Environment.ProcessorCount * 2;
+
+            ReadCursorPool = new LockedObjectPool<CursorImpl>(poolSize, () => null, false);
         }
 
         internal bool IsReleased => _handle == default(uint);
@@ -116,7 +118,7 @@ namespace Spreads.LMDB
         /// </summary>
         public Cursor OpenCursor(Transaction txn)
         {
-            return new Cursor(CursorImpl.Create(this, txn._impl, null));
+            return new Cursor(CursorImpl.Create(this, txn._impl, false));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -125,12 +127,19 @@ namespace Spreads.LMDB
             CursorImpl cursorImpl;
             if (txn._impl.IsReadOnly)
             {
-                var rch = ReadCursorHandlePool.Allocate();
-                cursorImpl = CursorImpl.Create(this, txn._impl, rch);
+                cursorImpl = ReadCursorPool.Rent();
+                if (cursorImpl == null)
+                {
+                    cursorImpl = CursorImpl.Create(this, txn._impl, true);
+                }
+                else
+                {
+                    cursorImpl.Renew(txn._impl);
+                }
             }
             else
             {
-                cursorImpl = CursorImpl.Create(this, txn._impl, null);
+                cursorImpl = CursorImpl.Create(this, txn._impl, true);
             }
             return new ReadOnlyCursor(cursorImpl);
         }

@@ -7,7 +7,7 @@ using Spreads.LMDB.Interop;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using System.Runtime.ConstrainedExecution;
 
 namespace Spreads.LMDB
 {
@@ -115,9 +115,10 @@ namespace Spreads.LMDB
         }
     }
 
-    // TODO inherit CriticalFinalizerObject, SafeHandle.Dispose is virtual but very hot for RO transactions
-    internal class TransactionImpl : SafeHandle
+    internal class TransactionImpl : CriticalFinalizerObject, IDisposable
     {
+        private IntPtr _handle;
+
         private LMDBEnvironment _lmdbEnvironment;
 
         private bool _isReadOnly;
@@ -134,7 +135,8 @@ namespace Spreads.LMDB
         internal static readonly ObjectPool<TransactionImpl> TxPool =
             new ObjectPool<TransactionImpl>(() => new TransactionImpl(), Environment.ProcessorCount * 16);
 
-        private TransactionImpl() : base(IntPtr.Zero, true)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private TransactionImpl()
         {
             _state = TransactionState.Disposed;
         }
@@ -166,7 +168,7 @@ namespace Spreads.LMDB
                     Debug.Assert(tx._state == TransactionState.Reset);
                 }
 
-                if (tx.IsInvalidFast)
+                if (tx.IsInvalid)
                 {
                     // create new handle
                     NativeMethods.AssertExecute(NativeMethods.mdb_txn_begin(
@@ -186,7 +188,7 @@ namespace Spreads.LMDB
                 NativeMethods.AssertExecute(NativeMethods.mdb_txn_begin(
                     lmdbEnvironment._handle.Handle,
                     IntPtr.Zero, beginFlags, out IntPtr handle));
-                tx.handle = handle;
+                tx._handle = handle;
                 if (tx._state != TransactionState.Disposed)
                 {
                     ThrowShoudBeDisposed();
@@ -202,7 +204,8 @@ namespace Spreads.LMDB
             return tx;
         }
 
-        protected override void Dispose(bool disposing)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void Dispose(bool disposing)
         {
             var isReadOnly = IsReadOnly;
             if (_state == TransactionState.Disposed)
@@ -213,12 +216,6 @@ namespace Spreads.LMDB
                 }
                 else
                 {
-                    // TxPool.Free could have dropped, currently we cannot detect this
-                    // See comment in Dispose()
-                    if (isReadOnly)
-                    {
-                        base.Dispose(true);
-                    }
                     return;
                 }
             }
@@ -229,26 +226,26 @@ namespace Spreads.LMDB
             {
                 if (disposing)
                 {
-                    NativeMethods.mdb_txn_reset(handle);
+                    NativeMethods.mdb_txn_reset(_handle);
                     _state = TransactionState.Reset;
+
                     var pooled = _lmdbEnvironment.ReadTxnPool.Return(this);
                     if (pooled)
                     {
                         Debug.Assert(_state == TransactionState.Reset); // set above
                         return;
                     }
-
-                    _state = TransactionState.Disposed;
-                    NativeMethods.mdb_txn_abort(handle);
-                    handle = IntPtr.Zero;
                 }
                 else
                 {
 #if DEBUG
                     Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly. " + StackTrace);
 #endif
-                    base.Dispose(false);
                 }
+
+                _state = TransactionState.Disposed;
+                NativeMethods.mdb_txn_abort(_handle);
+                _handle = IntPtr.Zero;
             }
             else
             {
@@ -258,11 +255,11 @@ namespace Spreads.LMDB
                     {
                         if (LmdbEnvironment.AutoCommit)
                         {
-                            NativeMethods.mdb_txn_commit(handle);
+                            NativeMethods.mdb_txn_commit(_handle);
                         }
                         else
                         {
-                            NativeMethods.mdb_txn_abort(handle);
+                            NativeMethods.mdb_txn_abort(_handle);
                             // This should not be catchable
                             FailDisposingActiveTransaction();
                         }
@@ -272,7 +269,7 @@ namespace Spreads.LMDB
                 {
                     if (_state == TransactionState.Active)
                     {
-                        NativeMethods.mdb_txn_abort(handle);
+                        NativeMethods.mdb_txn_abort(_handle);
                         FailFinalizingActiveTransaction();
                     }
                     else
@@ -282,7 +279,7 @@ namespace Spreads.LMDB
 #endif
                     }
                 }
-                handle = IntPtr.Zero;
+                _handle = IntPtr.Zero;
             }
 
             _lmdbEnvironment = null;
@@ -295,6 +292,18 @@ namespace Spreads.LMDB
             {
                 TxPool.Free(this);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        ~TransactionImpl()
+        {
+            Dispose(false);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -311,39 +320,21 @@ namespace Spreads.LMDB
                 "Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
         }
 
-        // https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.safehandle.releasehandle?view=netframework-4.7.2#remarks
-        // The ReleaseHandle method is guaranteed to be called only once and only if the handle
-        // is valid as defined by the IsInvalid property. Implement this method in your SafeHandle
-        // derived classes to execute any code that is required to free the handle.
-        // Because one of the functions of SafeHandle is to guarantee prevention of resource leaks,
-        // the code in your implementation of ReleaseHandle must never fail.
-        protected override bool ReleaseHandle()
-        {
-            var h = handle;
-            handle = IntPtr.Zero;
-            NativeMethods.mdb_txn_abort(h);
-            return true;
-        }
-
         internal IntPtr Handle
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => handle;
+            get => _handle;
         }
 
-        // inlined
-        private bool IsInvalidFast
+        private bool IsInvalid
         {
-            [MethodImpl(MethodImplOptions.NoInlining)]
-            get => handle == IntPtr.Zero;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _handle == default;
         }
-
-        // TODO check usages, internal should use FastVersion
-        public override bool IsInvalid => IsInvalidFast;
 
         internal void SetNewHandle(IntPtr newHandle)
         {
-            SetHandle(newHandle);
+            _handle = newHandle;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -402,7 +393,7 @@ namespace Spreads.LMDB
                 ThrowTxReadOnlyOnCommit();
             }
 
-            NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(handle));
+            NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(_handle));
             _state = TransactionState.Commited;
         }
 
@@ -413,8 +404,8 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotActiveOnAbort();
             }
-            NativeMethods.mdb_txn_abort(handle);
-            handle = IntPtr.Zero;
+            NativeMethods.mdb_txn_abort(_handle);
+            _handle = IntPtr.Zero;
             _state = TransactionState.Aborted;
         }
 
@@ -429,7 +420,7 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotReadonlyOnReset();
             }
-            NativeMethods.mdb_txn_reset(handle);
+            NativeMethods.mdb_txn_reset(_handle);
             _state = TransactionState.Reset;
         }
 
@@ -444,7 +435,7 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotReadonlyOnRenew();
             }
-            NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(handle));
+            NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(_handle));
             _state = TransactionState.Active;
         }
 
