@@ -20,6 +20,7 @@ namespace Spreads.LMDB
     /// </summary>
     public unsafe class Database : IDisposable
     {
+        // TODO use LockedObjectPool, same as in RO Txn pool
         internal readonly ObjectPool<ReadCursorHandle> ReadCursorHandlePool =
             new ObjectPool<ReadCursorHandle>(() => new ReadCursorHandle(), System.Environment.ProcessorCount * 16);
 

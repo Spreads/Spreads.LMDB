@@ -115,6 +115,7 @@ namespace Spreads.LMDB
         }
     }
 
+    // TODO inherit CriticalFinalizerObject, SafeHandle.Dispose is virtual but very hot for RO transactions
     internal class TransactionImpl : SafeHandle
     {
         private LMDBEnvironment _lmdbEnvironment;
@@ -245,8 +246,6 @@ namespace Spreads.LMDB
                 {
 #if DEBUG
                     Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly. " + StackTrace);
-#else
-                    Trace.TraceWarning("Finalizing read transaction. Dispose it explicitly.");
 #endif
                     base.Dispose(false);
                 }
@@ -265,7 +264,7 @@ namespace Spreads.LMDB
                         {
                             NativeMethods.mdb_txn_abort(handle);
                             // This should not be catchable
-                            Environment.FailFast("Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
+                            FailDisposingActiveTransaction();
                         }
                     }
                 }
@@ -274,14 +273,12 @@ namespace Spreads.LMDB
                     if (_state == TransactionState.Active)
                     {
                         NativeMethods.mdb_txn_abort(handle);
-                        Environment.FailFast("Finalizing active transaction. Will abort it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
+                        FailFinalizingActiveTransaction();
                     }
                     else
                     {
 #if DEBUG
                         Trace.TraceWarning("Finalizing finished write transaction. Dispose it explicitly. " + StackTrace);
-#else
-                        Trace.TraceWarning("Finalizing finished write transaction. Dispose it explicitly.");
 #endif
                     }
                 }
@@ -298,6 +295,20 @@ namespace Spreads.LMDB
             {
                 TxPool.Free(this);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void FailFinalizingActiveTransaction()
+        {
+            Environment.FailFast(
+                "Finalizing active transaction. Will abort it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void FailDisposingActiveTransaction()
+        {
+            Environment.FailFast(
+                "Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
         }
 
         // https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.safehandle.releasehandle?view=netframework-4.7.2#remarks
@@ -348,10 +359,9 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        internal static void ThrowlTransactionIsReadOnly(string message = null)
+        internal static void ThrowTransactionIsNotReadOnly()
         {
-            message = message is null ? String.Empty : " " + message;
-            throw new InvalidOperationException("Transaction is not readonly." + message);
+            throw new InvalidOperationException("Transaction is not readonly.");
         }
 
         #endregion Lifecycle

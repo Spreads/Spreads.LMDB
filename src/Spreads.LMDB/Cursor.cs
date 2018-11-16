@@ -247,6 +247,9 @@ namespace Spreads.LMDB
     {
         // Read-only cursors are pooled in Database instances since cursors belog to a DB
         // Here we pool only the objects
+
+        // TODO single handle as IntPtr, model after TxnImpl
+
         internal IntPtr _writeHandle;
 
         internal ReadCursorHandle _readHandle;
@@ -277,7 +280,7 @@ namespace Spreads.LMDB
             {
                 if (!txn.IsReadOnly)
                 {
-                    TransactionImpl.ThrowlTransactionIsReadOnly("Txn must be readonly to renew a cursor");
+                    TransactionImpl.ThrowTransactionIsNotReadOnly();
                 }
 
                 if (rh.IsInvalid)
@@ -307,7 +310,7 @@ namespace Spreads.LMDB
         /// Closes the cursor and deallocates all resources associated with it.
         /// </summary>
         /// <param name="disposing">True if called from Dispose.</param>
-        protected virtual void Dispose(bool disposing)
+        protected void Dispose(bool disposing)
         {
             var isReadOnly = IsReadOnly;
             if (isReadOnly)
@@ -320,7 +323,9 @@ namespace Spreads.LMDB
                 }
                 else
                 {
+#if DEBUG
                     Trace.TraceWarning("Finalizing read cursor. Dispose it explicitly.");
+#endif
                     _readHandle.Dispose();
                 }
             }
@@ -330,7 +335,9 @@ namespace Spreads.LMDB
 
                 if (!disposing)
                 {
+#if DEBUG
                     Trace.TraceWarning("Finalizing write cursor. Dispose it explicitly.");
+#endif
                 }
                 _writeHandle = IntPtr.Zero;
             }
@@ -468,47 +475,49 @@ namespace Spreads.LMDB
         {
             int res = 0;
 
-            switch (direction)
+            // TODO this method is a good candidate for calli stuff, we have 10 method calls which are very unpredictable.
+
+            // Switch is not inlineable
+            // ReSharper disable once ConvertIfStatementToSwitchStatement
+            if (direction == Lookup.LT)
             {
-                case Lookup.LT:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle.Handle, ref key, ref value)
-                            : NativeMethods.sdb_cursor_get_lt_dup(_writeHandle, ref key, ref value)
-                        );
-                    break;
-
-                case Lookup.LE:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_le_dup(_readHandle.Handle, ref key, ref value)
-                            : NativeMethods.sdb_cursor_get_le_dup(_writeHandle, ref key, ref value)
-                        );
-                    break;
-
-                case Lookup.EQ:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle.Handle, ref key, ref value)
-                            : NativeMethods.sdb_cursor_get_eq_dup(_writeHandle, ref key, ref value)
-                    );
-                    break;
-
-                case Lookup.GE:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle.Handle, ref key, ref value)
-                            : NativeMethods.sdb_cursor_get_ge_dup(_writeHandle, ref key, ref value)
-                    );
-                    break;
-
-                case Lookup.GT:
-                    res = NativeMethods.AssertRead(
-                        IsReadOnly
-                            ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle.Handle, ref key, ref value)
-                            : NativeMethods.sdb_cursor_get_gt_dup(_writeHandle, ref key, ref value)
-                    );
-                    break;
+                res = NativeMethods.AssertRead(
+                    IsReadOnly
+                        ? NativeMethods.sdb_cursor_get_lt_dup(_readHandle.Handle, ref key, ref value)
+                        : NativeMethods.sdb_cursor_get_lt_dup(_writeHandle, ref key, ref value)
+                );
+            }
+            else if (direction == Lookup.LE)
+            {
+                res = NativeMethods.AssertRead(
+                    IsReadOnly
+                        ? NativeMethods.sdb_cursor_get_le_dup(_readHandle.Handle, ref key, ref value)
+                        : NativeMethods.sdb_cursor_get_le_dup(_writeHandle, ref key, ref value)
+                );
+            }
+            else if (direction == Lookup.EQ)
+            {
+                res = NativeMethods.AssertRead(
+                    IsReadOnly
+                        ? NativeMethods.sdb_cursor_get_eq_dup(_readHandle.Handle, ref key, ref value)
+                        : NativeMethods.sdb_cursor_get_eq_dup(_writeHandle, ref key, ref value)
+                );
+            }
+            else if (direction == Lookup.GE)
+            {
+                res = NativeMethods.AssertRead(
+                    IsReadOnly
+                        ? NativeMethods.sdb_cursor_get_ge_dup(_readHandle.Handle, ref key, ref value)
+                        : NativeMethods.sdb_cursor_get_ge_dup(_writeHandle, ref key, ref value)
+                );
+            }
+            else if (direction == Lookup.GT)
+            {
+                res = NativeMethods.AssertRead(
+                    IsReadOnly
+                        ? NativeMethods.sdb_cursor_get_gt_dup(_readHandle.Handle, ref key, ref value)
+                        : NativeMethods.sdb_cursor_get_gt_dup(_writeHandle, ref key, ref value)
+                );
             }
 
             return res != NativeMethods.MDB_NOTFOUND;
