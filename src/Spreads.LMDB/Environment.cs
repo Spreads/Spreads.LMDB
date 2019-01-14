@@ -61,7 +61,7 @@ namespace Spreads.LMDB
         /// <param name="disableAsync">Disable dedicated writer thread and NO_TLS option.
         /// Fire-and-forget option for write transaction will throw.
         /// .NET async cannot be used in transaction body. </param>
-        /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them.</param>
+        /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them. Should be true for multiple (a lot of) processes accessing the same env.</param>
         public static LMDBEnvironment Create(string directory = null,
             DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
