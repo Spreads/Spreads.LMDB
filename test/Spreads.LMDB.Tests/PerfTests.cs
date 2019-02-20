@@ -15,6 +15,9 @@ namespace Spreads.LMDB.Tests
     [TestFixture]
     public class PerfTests
     {
+
+        
+
         [Test, Explicit("long running")]
         public void SimpleWriteReadBenchmark()
         {
@@ -22,7 +25,7 @@ namespace Spreads.LMDB.Tests
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
 
-            var count = 1_000_000;
+            var count = 1_0_000;
             var rounds = 1;
             var extraReadRounds = 10;
             var path = "./data/benchmark";
@@ -36,22 +39,26 @@ namespace Spreads.LMDB.Tests
             Directory.CreateDirectory(dirS);
             Directory.CreateDirectory(dirK);
 
-            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.NoSync,
+            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.MapAsync,
                 disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
+            // envS.TouchSpace(500);
+
+            Console.WriteLine("USED SIZE: " + envS.UsedSize);
+
             var dbS = envS.OpenDatabase("SimpleWrite", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
 
             for (int r = 0; r < rounds; r++)
             {
-                using (Benchmark.Run("Spreads Write", count, true))
+                using (Benchmark.Run("Spreads Write (K)", count * 1000, true))
                 {
                     for (long i = r * count; i < (r + 1) * count; i++)
                     {
-                        using (var tx = envS.BeginTransaction())
+                        using (var tx = envS.BeginTransaction(TransactionBeginFlags.NoMetaSync))
                         {
-                            dbS.Put(tx, i, i, TransactionPutOptions.AppendData);
+                            dbS.Put(tx, i, i, TransactionPutOptions.None);
                             tx.Commit();
                         }
                     }
@@ -79,7 +86,7 @@ namespace Spreads.LMDB.Tests
             dbS.Dispose();
             envS.Close();
 
-            Benchmark.Dump("SimpleWrite/Read 10x1M longs");
+            Benchmark.Dump("SimpleWrite/Read 1M longs");
         }
 
         //public unsafe long TouchSpace(int megabytes = 0)
@@ -129,9 +136,9 @@ namespace Spreads.LMDB.Tests
 #pragma warning disable 618
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
-            var count = 1_000_000;
+            var count = 100_000;
             var rounds = 1;
-            var extraRounds = 1;
+            var extraRounds = 10;
 
             var path = "./data/benchmarkbatched";
             if (Directory.Exists(path))
@@ -144,12 +151,12 @@ namespace Spreads.LMDB.Tests
             Directory.CreateDirectory(dirS);
             Directory.CreateDirectory(dirK);
 
-            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.NoSync, disableAsync: true);
+            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.None, disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
-            // envS.TouchSpace();
-
+            // envS.TouchSpace(100);
+            Console.WriteLine("USED SIZE: " + envS.UsedSize);
             var dbS = envS.OpenDatabase("SimpleWrite", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
 
             for (int i = 0; i < 2; i++)
@@ -178,20 +185,28 @@ namespace Spreads.LMDB.Tests
 
             for (int r = 0; r < rounds; r++)
             {
-                using (Benchmark.Run("Spreads Write", count, true))
+                using (Benchmark.Run("Spreads Write", count, false))
                 {
-                    using (var tx = envS.BeginTransaction())
+                    var tx = envS.BeginTransaction();
+                    // using (tx)
                     {
                         for (long i = r * count; i < (r + 1) * count; i++)
                         {
                             dbS.Put(tx, i, i, TransactionPutOptions.AppendData);
+                            if (i % 10000 == 0)
+                            {
+                                tx.Commit();
+                                tx.Dispose();
+                                tx = envS.BeginTransaction();
+                            }
                         }
 
                         tx.Commit();
+                        tx.Dispose();
                     }
                 }
 
-                using (Benchmark.Run("Spreads Read", count * extraRounds, true))
+                using (Benchmark.Run("Spreads Read", count * extraRounds, false))
                 {
                     using (var tx = envS.BeginReadOnlyTransaction())
                     {

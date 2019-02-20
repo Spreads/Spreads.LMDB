@@ -7,8 +7,10 @@ using Spreads.Buffers;
 using Spreads.Serialization;
 using Spreads.Utils;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -152,6 +154,131 @@ namespace Spreads.LMDB.Tests
             env.Open();
 
             var db = env.OpenDatabase("db_reserve", new DatabaseConfig(DbFlags.Create));
+
+            var keyBytes = new byte[] { 1, 2, 3, 4 };
+            var valueBytes = new byte[4096 * 2 - 16];
+
+            var addresses = new long[100];
+            var addresses2 = new long[addresses.Length];
+
+            {
+                env.Write(txn =>
+                {
+                    // var db2 = new Database("db_reserve", txn._impl, new DatabaseConfig(DbFlags.Create));
+
+                    var addr = 0L;
+                    var c = db.OpenCursor(txn);
+                    for (int i = 0; i < addresses.Length; i++)
+                    {
+                        keyBytes[3] = (byte)i;
+                        fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
+                        {
+                            var key = new DirectBuffer(keyBytes.Length, keyPtr);
+                            var value = new DirectBuffer(valueBytes.Length, valPtr);
+
+                            var stat1 = db.GetStat();
+
+                            // c.Put(ref key, ref value, CursorPutOptions.ReserveSpace);
+                            db.Put(txn, ref key, ref value, TransactionPutOptions.ReserveSpace);
+                            // Console.WriteLine((long)value.mv_data);
+
+                            if (i > 0)
+                            {
+                                addresses[i] = (long)value.Data - addr;
+                                Console.WriteLine((long)value.Data + " - " + (long)value.Data % 4096 + " - " +
+                                                  addresses[i]);
+                            }
+
+                            addr = (long)value.Data;
+                        }
+                    }
+
+                    c.Dispose();
+                    txn.Commit();
+                }, false);
+            }
+
+            Console.WriteLine("---------------------------");
+
+            env.Read(txn =>
+            {
+                // var c = db.OpenReadOnlyCursor(txn);
+
+                var addr = 0L;
+                for (int i = 0; i < addresses.Length; i++)
+                {
+                    keyBytes[3] = (byte)i;
+                    fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
+                    {
+                        var key = new DirectBuffer(keyBytes.Length, keyPtr);
+                        var value = new DirectBuffer(valueBytes.Length, valPtr);
+
+                        // c.TryGet(CursorGetOption.SetKey, ref key, ref value);
+                        db.TryGet(txn, ref key, out value);
+                        //db.Put(txn, ref key, ref value, TransactionPutOptions.ReserveSpace);
+                        // Console.WriteLine((long)value.mv_data);
+
+                        if (i > 0)
+                        {
+                            addresses2[i] = (long)value.Data - addr;
+                            Console.WriteLine((long)value.Data + " - " + (long)value.Data % 4096 + " - " + addresses2[i] + " - " + addresses[i]);
+                            System.Runtime.CompilerServices.Unsafe.WriteUnaligned((void*)value.Data, i);
+                        }
+                        addr = (long)value.Data;
+                    }
+                }
+                // c.Dispose();
+            });
+            var stat = env.GetStat();
+            var dbstat = db.GetStat();
+            Console.WriteLine("Oveflow pages: " + stat.ms_overflow_pages);
+            db.Dispose();
+            env.Close().Wait();
+        }
+
+        [Test]
+        public unsafe void CouldReserve2()
+        {
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap);
+            env.MapSize = 16 * 1024 * 1024;
+
+            env.Open();
+
+            var db = env.OpenDatabase("db_reserve", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
+
+            DirectBuffer SharedBuffer;
+            var _ = env.PageSize - env.OverflowPageHeaderSize;
+            using (var txn = env.BeginTransaction())
+            {
+                try
+                {
+                    long sharedPid = 0;
+                    var keyPtr = Unsafe.AsPointer(ref sharedPid);
+                    var key1 = new DirectBuffer(8, (byte*)keyPtr);
+
+                    if (db.TryGet(txn, ref key1, out DirectBuffer value1))
+                    {
+                        SharedBuffer = value1;
+                    }
+                    else
+                    {
+                        var value = new DirectBuffer(env.PageSize - env.OverflowPageHeaderSize,
+                            (byte*)IntPtr.Zero);
+                        db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
+                        value.Clear(0, value.Length);
+                        SharedBuffer = value;
+                    }
+
+                    txn.Commit();
+                }
+                catch (Exception ex)
+                {
+                    txn.Abort();
+                    Trace.TraceError(ex.ToString());
+                    throw;
+                }
+            }
 
             var keyBytes = new byte[] { 1, 2, 3, 4 };
             var valueBytes = new byte[4096 * 2 - 16];

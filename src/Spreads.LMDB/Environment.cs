@@ -12,6 +12,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Spreads.Serialization;
 
 namespace Spreads.LMDB
 {
@@ -637,6 +638,54 @@ namespace Spreads.LMDB
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_set_maxdbs(_handle, (uint)value));
                 _maxDbs = value;
             }
+        }
+
+        public unsafe long TouchSpace(int megabytes = 0)
+        {
+            EnsureOpened();
+            int size = 0;
+            var used = UsedSize;
+            if (megabytes == 0)
+            {
+                
+                size = (int)((MapSize - used) / 2);
+                if (size == 0)
+                {
+                    return used;
+                }
+            }
+            else
+            {
+                size = megabytes * 1024 * 1024;
+            }
+            if (size > MapSize - used)
+            {
+                size = (int)(Math.Min(MapSize - used, int.MaxValue) * 8 / 10);
+            }
+
+            if (size <= 0)
+            {
+                return used;
+            }
+            var db = OpenDatabase("__touch_space___", new DatabaseConfig(DbFlags.Create));
+            using (var txn = BeginTransaction())
+            {
+                var key = 0;
+                var keyPtr = Unsafe.AsPointer(ref key);
+                var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (byte*)keyPtr);
+                DirectBuffer value = new DirectBuffer(size, (byte*)IntPtr.Zero);
+                db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
+                Unsafe.InitBlockUnaligned(value.Data, 0, (uint)value.Length);
+                txn.Commit();
+            }
+            Sync(true);
+            using (var txn = BeginTransaction(TransactionBeginFlags.NoSync))
+            {
+                // db.Truncate(txn);
+                db.Drop(txn);
+            }
+            db.Dispose();
+            return UsedSize;
         }
 
         public long EntriesCount { get { return GetStat().ms_entries.ToInt64(); } }
