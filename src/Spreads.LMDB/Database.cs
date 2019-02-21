@@ -451,12 +451,12 @@ namespace Spreads.LMDB
                 {
                     yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
                     value = default;
-                }
 
-                while (c.TryGet(ref key, ref value, CursorGetOption.NextNoDuplicate))
-                {
-                    yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
-                    value = default;
+                    while (c.TryGet(ref key, ref value, CursorGetOption.NextNoDuplicate))
+                    {
+                        yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
+                        value = default;
+                    }
                 }
             }
         }
@@ -472,12 +472,12 @@ namespace Spreads.LMDB
                 {
                     yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
                     value = default;
-                }
 
-                while (c.TryGet(ref key, ref value, CursorGetOption.NextNoDuplicate))
-                {
-                    yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
-                    value = default;
+                    while (c.TryGet(ref key, ref value, CursorGetOption.NextNoDuplicate))
+                    {
+                        yield return new KeyValuePair<DirectBuffer, DirectBuffer>(key, value);
+                        value = default;
+                    }
                 }
             }
         }
@@ -542,11 +542,11 @@ namespace Spreads.LMDB
                         c.TryGet(ref key1, ref value, CursorGetOption.FirstDuplicate))
                     {
                         yield return value;
-                    }
 
-                    while (c.TryGet(ref key1, ref value, CursorGetOption.NextDuplicate))
-                    {
-                        yield return value;
+                        while (c.TryGet(ref key1, ref value, CursorGetOption.NextDuplicate))
+                        {
+                            yield return value;
+                        }
                     }
                 }
             }
