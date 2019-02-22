@@ -364,6 +364,7 @@ namespace Spreads.LMDB.Tests
                 txn.Abort();
             }
 
+            db.Dispose();
             env.Close().Wait();
         }
 

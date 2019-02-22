@@ -8,8 +8,10 @@ using Spreads.LMDB.Interop;
 using Spreads.Serialization;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using static System.Runtime.CompilerServices.Unsafe;
 
@@ -25,6 +27,8 @@ namespace Spreads.LMDB
         internal uint _handle;
         private readonly DatabaseConfig _config;
         private readonly LMDBEnvironment _environment;
+        private GCHandle _environmentGcHandle;
+
         private readonly string _name;
 
 #if DEBUG
@@ -38,6 +42,7 @@ namespace Spreads.LMDB
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _name = name;
             _environment = txn.LmdbEnvironment;
+            _environmentGcHandle = GCHandle.Alloc(_environment, GCHandleType.Normal);
 
             NativeMethods.AssertExecute(NativeMethods.mdb_dbi_open(txn.Handle, name, _config.OpenFlags, out var handle));
             if (_config.CompareFunction != null)
@@ -612,11 +617,25 @@ namespace Spreads.LMDB
 
         protected virtual void Dispose(bool disposing)
         {
+            _environmentGcHandle.Free();
+
             if (_handle == default)
             {
                 return;
             }
-            NativeMethods.mdb_dbi_close(Environment._handle, _handle);
+
+            if (!disposing)
+            {
+                Trace.TraceWarning("Finalizing LMDB Database. Dispose it explicitly.");
+            }
+
+            
+
+            if (Environment._handle.IsInvalid)
+            {
+                NativeMethods.mdb_dbi_close(Environment._handle, _handle);
+            }
+
             _handle = default;
         }
 
@@ -628,9 +647,6 @@ namespace Spreads.LMDB
 
         ~Database()
         {
-#if DEBUG
-            throw new InvalidOperationException("Finalizing DB. Must dispose it explicitly. \n" + _ctorStacktrace);
-#endif
             Dispose(false);
         }
     }
