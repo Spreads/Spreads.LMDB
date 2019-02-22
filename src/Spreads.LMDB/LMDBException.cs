@@ -14,6 +14,11 @@ namespace Spreads.LMDB
     /// </summary>
     public class LMDBException : Exception
     {
+        /// <summary>
+        /// LMDB error code.
+        /// </summary>
+        public int Code { get; }
+
         private static string GetMessageByCode(int code)
         {
             var ptr = NativeMethods.mdb_strerror(code);
@@ -27,6 +32,8 @@ namespace Spreads.LMDB
         }
 
         internal LMDBException(int code) : base(GetMessageByCode(code))
-        { }
+        {
+            Code = code;
+        }
     }
 }
