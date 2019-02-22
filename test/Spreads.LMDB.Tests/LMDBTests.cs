@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -391,6 +392,51 @@ namespace Spreads.LMDB.Tests
                 Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
 
                 txn.Commit();
+            });
+            db.Dispose();
+            env.Close().Wait();
+        }
+
+        [Test]
+        public unsafe void CouldWriteString()
+        {
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path,
+                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            env.Open();
+            var stat = env.GetStat();
+
+            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
+
+            var keyString = "my_string_key";
+            var values = new byte[] { 1, 2, 3, 4 };
+
+            env.Write(txn =>
+            {
+                fixed (char* keyPtr = keyString)
+                {
+                    var keyUtf8Length = Encoding.UTF8.GetByteCount(keyString);
+                    var keyBytes = stackalloc byte[keyUtf8Length];
+                    Encoding.UTF8.GetBytes(keyPtr, keyString.Length, keyBytes, keyUtf8Length);
+                    var key = new DirectBuffer(keyUtf8Length, keyBytes);
+
+                    var value = new DirectBuffer(values);
+                    DirectBuffer value2 = default;
+
+                    using (var cursor = db.OpenCursor(txn))
+                    {
+                        Assert.IsTrue(cursor.TryPut(ref key, ref value, CursorPutOptions.None));
+                    }
+
+                    using (var cursor = db.OpenCursor(txn))
+                    {
+                        Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
+                    }
+
+                    Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
+
+                    txn.Commit();
+                }
             });
             db.Dispose();
             env.Close().Wait();
