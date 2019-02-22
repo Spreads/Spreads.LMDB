@@ -47,7 +47,6 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
-
         [Test]
         public async Task CouldCreateEnvironmentWithFullPath()
         {
@@ -63,33 +62,33 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
-        //[Test]
-        //public void CouldTouchSpace()
-        //{
-        //    // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
-        //    Console.WriteLine(LMDBVersionInfo.Version);
-        //    var env = LMDBEnvironment.Create(TestUtils.GetPath());
-        //    env.MapSize = 10 * 1024 * 1024;
-        //    env.Open();
-        //    var used = env.TouchSpace(5);
-        //    var stat = env.GetStat();
-        //    Console.WriteLine("Used size: " + used);
-        //    env.Close().Wait();
+        [Test]
+        public void CouldTouchSpace()
+        {
+            // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
+            Console.WriteLine(LMDBVersionInfo.Version);
+            var env = LMDBEnvironment.Create(TestUtils.GetPath());
+            env.MapSize = 10 * 1024 * 1024;
+            env.Open();
+            var used = env.TouchSpace(5);
+            var stat = env.GetStat();
+            Console.WriteLine("Used size: " + used);
+            env.Close().Wait();
 
-        //    Console.WriteLine("Touch default: ");
+            Console.WriteLine("Touch default: ");
 
-        //    Console.WriteLine(LMDBVersionInfo.Version);
-        //    env = LMDBEnvironment.Create(TestUtils.GetPath());
-        //    env.MapSize = 10 * 1024 * 1024;
-        //    env.Open();
-        //    used = env.TouchSpace();
-        //    stat = env.GetStat();
-        //    Console.WriteLine("Used size: " + used);
-        //    env.Close().Wait();
-        //}
+            Console.WriteLine(LMDBVersionInfo.Version);
+            env = LMDBEnvironment.Create(TestUtils.GetPath());
+            env.MapSize = 10 * 1024 * 1024;
+            env.Open();
+            used = env.TouchSpace();
+            stat = env.GetStat();
+            Console.WriteLine("Used size: " + used);
+            env.Close().Wait();
+        }
 
         [Test, Ignore("")]
-        public async Task CouldCreateManyEnvironment()
+        public void CouldCreateManyEnvironment()
         {
             var path = TestUtils.GetPath();
             Console.WriteLine(LMDBVersionInfo.Version);
@@ -113,10 +112,9 @@ namespace Spreads.LMDB.Tests
 
             using (var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)))
             {
-
                 db.Truncate();
 
-                var values = new byte[] {1, 2, 3, 4};
+                var values = new byte[] { 1, 2, 3, 4 };
 
                 await env.WriteAsync(txn =>
                 {
@@ -668,7 +666,7 @@ namespace Spreads.LMDB.Tests
                 new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
             db.Truncate();
 
-            var count = 10;
+            var count = 10_000;
 
             for (var i = 1; i <= count; i++)
             {
@@ -690,7 +688,7 @@ namespace Spreads.LMDB.Tests
                     Console.WriteLine($"kvp: {kvp.Key} - {kvp.Value}");
                 }
 
-                Assert.AreEqual(10, db.AsEnumerable<int, int>(txn, 0).Count());
+                Assert.AreEqual(count, db.AsEnumerable<int, int>(txn, 0).Count());
                 foreach (var value in db.AsEnumerable<int, int>(txn, 0))
                 {
                     Console.WriteLine("Key0 value: " + value);
@@ -711,7 +709,7 @@ namespace Spreads.LMDB.Tests
                     Console.WriteLine($"kvp: {kvp.Key} - {kvp.Value}");
                 }
 
-                Assert.AreEqual(9, db.AsEnumerable<int, int>(txn, 0).Count());
+                Assert.AreEqual(count - 1, db.AsEnumerable<int, int>(txn, 0).Count());
                 foreach (var value in db.AsEnumerable<int, int>(txn, 0))
                 {
                     Console.WriteLine("Key0 value: " + value);
@@ -1067,7 +1065,6 @@ namespace Spreads.LMDB.Tests
             using (var cursor = db.OpenReadOnlyCursor((ReadOnlyTransaction)txn))
             using (var cursor2 = db.OpenReadOnlyCursor(txn))
             {
-
             }
             db.Dispose();
             env.Close().Wait();
