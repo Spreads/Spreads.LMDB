@@ -17,7 +17,7 @@ steps:
   inputs:
     version: '2.1.300' # replace this value with the version that you need for your project
 
-- script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release -v m
-  displayName: 'Test Release'
 - script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Debug -v m
   displayName: 'Test Debug'
+- script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release -v m
+  displayName: 'Test Release'

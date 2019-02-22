@@ -27,6 +27,10 @@ namespace Spreads.LMDB
         private readonly LMDBEnvironment _environment;
         private readonly string _name;
 
+#if DEBUG
+        private string _ctorStacktrace = System.Environment.StackTrace;
+#endif
+
         internal Database(string name, TransactionImpl txn, DatabaseConfig config)
         {
             if (txn.IsReadOnly) { throw new InvalidOperationException("Cannot create a DB with RO transaction"); }
@@ -624,6 +628,9 @@ namespace Spreads.LMDB
 
         ~Database()
         {
+#if DEBUG
+            throw new InvalidOperationException("Finalizing DB. Must dispose it explicitly. \n" + _ctorStacktrace);
+#endif
             Dispose(false);
         }
     }
