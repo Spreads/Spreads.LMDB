@@ -700,6 +700,56 @@ namespace Spreads.LMDB.Tests
         }
 
         [Test]
+        public void CouldWriteLongDups()
+        {
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+
+            env.MapSize = 100 * 1024 * 1024;
+            env.Open();
+
+            var db = env.OpenDatabase("dupfixed_db",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
+            ulong count = 100;
+
+            using (Benchmark.Run("Write sync transactions", (long)count))
+            {
+                for (ulong i = 1; i < count; i++)
+                {
+                    var key = 0;
+                    var value = i;
+                    try
+                    {
+                        // valueHolder[0] = i;
+                        db.Put(0, i, TransactionPutOptions.AppendDuplicateData);
+
+                        using (var txn = env.BeginReadOnlyTransaction())
+                        {
+                            if (!db.TryFindDup(txn, Lookup.EQ, ref key, ref value))
+                            {
+                                Assert.Fail("!db.TryGet(txn, ref key, out value)");
+                            }
+
+                            if (value != i)
+                            {
+                                Assert.Fail($"value {value} != i {i}");
+                            }
+                        }
+                        
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.ToString());
+                    }
+                }
+            }
+
+            Benchmark.Dump();
+            db.Dispose();
+            env.Dispose();
+        }
+
+        [Test]
         public async Task CouldDeleteDupSorted()
         {
             var path = TestUtils.GetPath();
