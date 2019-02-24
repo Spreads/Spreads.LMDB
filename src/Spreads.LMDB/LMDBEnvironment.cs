@@ -29,7 +29,7 @@ namespace Spreads.LMDB
         private volatile int _instanceCount;
         private readonly UnixAccessMode _accessMode;
         private readonly bool _disableReadTxnAutoreset;
-        private readonly DbEnvironmentFlags _openFlags;
+        private readonly LMDBEnvironmentFlags _openFlags;
         internal EnvironmentHandle _handle;
         private int _maxDbs;
         private int _pageSize;
@@ -64,7 +64,7 @@ namespace Spreads.LMDB
         /// .NET async cannot be used in transaction body. </param>
         /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them. Should be true for multiple (a lot of) processes accessing the same env.</param>
         public static LMDBEnvironment Create(string directory = null,
-            DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
+            LMDBEnvironmentFlags openFlags = LMDBEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
             bool disableAsync = false, bool disableReadTxnAutoreset = false)
         {
@@ -72,7 +72,7 @@ namespace Spreads.LMDB
             if (!disableAsync)
             {
                 // we need NoTLS to work well with .NET Tasks, see docs about writers that need a dedicated thread
-                openFlags = openFlags | DbEnvironmentFlags.NoTls;
+                openFlags = openFlags | LMDBEnvironmentFlags.NoTls;
             }
 #pragma warning restore 618
 
@@ -91,7 +91,7 @@ namespace Spreads.LMDB
         }
 
         private LMDBEnvironment(string directory,
-            DbEnvironmentFlags openFlags = DbEnvironmentFlags.None,
+            LMDBEnvironmentFlags openFlags = LMDBEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
             bool disableWriterThread = false,
             bool disableReadTxnAutoreset = false)
@@ -537,7 +537,7 @@ namespace Spreads.LMDB
             {
                 if (_overflowPageHeaderSize == 0)
                 {
-                    if (((int)_openFlags & (int)DbEnvironmentFlags.WriteMap) != 0)
+                    if (((int)_openFlags & (int)LMDBEnvironmentFlags.WriteMap) != 0)
                     {
                         _overflowPageHeaderSize = GetOverflowPageHeaderSize();
                     }
@@ -552,7 +552,7 @@ namespace Spreads.LMDB
 
         private unsafe int GetOverflowPageHeaderSize()
         {
-            if (((int)_openFlags & (int)DbEnvironmentFlags.WriteMap) == 0)
+            if (((int)_openFlags & (int)LMDBEnvironmentFlags.WriteMap) == 0)
             {
                 throw new InvalidOperationException("OverflowPageHeaderSize requires DbEnvironmentFlags.WriteMap flag");
             }
@@ -707,7 +707,7 @@ namespace Spreads.LMDB
         public void CopyTo(string path, bool compact = false)
         {
             EnsureOpened();
-            var flags = compact ? EnvironmentCopyFlags.Compact : EnvironmentCopyFlags.None;
+            var flags = compact ? LMDBEnvironmentCopyFlags.Compact : LMDBEnvironmentCopyFlags.None;
             var ptr = NativeMethods.StringToHGlobalUTF8(path);
             NativeMethods.AssertExecute(NativeMethods.mdb_env_copy2(_handle, ptr, flags));
             if (ptr != IntPtr.Zero)

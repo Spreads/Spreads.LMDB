@@ -147,7 +147,7 @@ namespace Spreads.LMDB.Tests
         {
             var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path,
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.MapSize = 126 * 1024 * 1024;
 
             env.Open();
@@ -239,7 +239,7 @@ namespace Spreads.LMDB.Tests
         public unsafe void CouldReserve2()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap);
             env.MapSize = 16 * 1024 * 1024;
 
             env.Open();
@@ -365,7 +365,7 @@ namespace Spreads.LMDB.Tests
         {
             var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path,
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
             var stat = env.GetStat();
 
@@ -402,7 +402,7 @@ namespace Spreads.LMDB.Tests
         {
             var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path,
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
             var stat = env.GetStat();
 
@@ -445,7 +445,7 @@ namespace Spreads.LMDB.Tests
         [Test, Explicit("long runnning")]
         public void CouldOpenHugeEnv()
         {
-            var env = LMDBEnvironment.Create("C:/localdata/tmp/TestData/HugeEnv", DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create("C:/localdata/tmp/TestData/HugeEnv", LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.MapSize = 2 * 1024L * 1024 * 1024 * 1024L;
             env.Open();
 
@@ -549,7 +549,7 @@ namespace Spreads.LMDB.Tests
             var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path,
                 // for any other config we have SQLite :)
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
@@ -603,7 +603,7 @@ namespace Spreads.LMDB.Tests
         public void CouldWriteAndReadProfileWriteSYNCPath()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
@@ -659,7 +659,7 @@ namespace Spreads.LMDB.Tests
         public async Task CouldWriteDupfixed()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -699,61 +699,59 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
-        [Test]
-        public void CouldWriteLongDups()
+[Test]
+public void CouldWriteLongDups()
+{
+    var path = TestUtils.GetPath();
+    var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
+
+    env.MapSize = 100 * 1024 * 1024;
+    env.Open();
+
+    var db = env.OpenDatabase("dupfixed_db",
+        new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
+    ulong count = 100;
+
+    using (Benchmark.Run("Long Wrt+TFD", (long)count))
+    {
+        for (ulong i = 1; i < count; i++)
         {
-            var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
-
-            env.MapSize = 100 * 1024 * 1024;
-            env.Open();
-
-            var db = env.OpenDatabase("dupfixed_db",
-                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
-            ulong count = 100;
-
-            using (Benchmark.Run("Write sync transactions", (long)count))
+            var key = 0;
+            var value = i;
+            try
             {
-                for (ulong i = 1; i < count; i++)
+                db.Put(0, i, TransactionPutOptions.AppendDuplicateData);
+
+                using (var txn = env.BeginReadOnlyTransaction())
                 {
-                    var key = 0;
-                    var value = i;
-                    try
+                    if (!db.TryFindDup(txn, Lookup.EQ, ref key, ref value))
                     {
-                        // valueHolder[0] = i;
-                        db.Put(0, i, TransactionPutOptions.AppendDuplicateData);
-
-                        using (var txn = env.BeginReadOnlyTransaction())
-                        {
-                            if (!db.TryFindDup(txn, Lookup.EQ, ref key, ref value))
-                            {
-                                Assert.Fail("!db.TryGet(txn, ref key, out value)");
-                            }
-
-                            if (value != i)
-                            {
-                                Assert.Fail($"value {value} != i {i}");
-                            }
-                        }
-                        
+                        Assert.Fail("!db.TryGet(txn, ref key, out value)");
                     }
-                    catch (Exception e)
+
+                    if (value != i)
                     {
-                        Console.WriteLine(e.ToString());
+                        Assert.Fail($"value {value} != i {i}");
                     }
                 }
             }
-
-            Benchmark.Dump();
-            db.Dispose();
-            env.Dispose();
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
         }
+    }
+
+    Benchmark.Dump();
+    db.Dispose();
+    env.Dispose();
+}
 
         [Test]
         public async Task CouldDeleteDupSorted()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -841,7 +839,7 @@ namespace Spreads.LMDB.Tests
         public async Task CouldWriteDupfixedFromTwoThreads()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -909,7 +907,7 @@ namespace Spreads.LMDB.Tests
         public async Task CouldUpdateInplaceFromAbortedWriteTransactions()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
 
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
@@ -1133,7 +1131,7 @@ namespace Spreads.LMDB.Tests
         public void CouldGetOverflowPageHeaderLength()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, DbEnvironmentFlags.WriteMap);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap);
             env.Open();
             Console.WriteLine("Page size: " + env.PageSize);
             Assert.AreEqual(16, env.OverflowPageHeaderSize);

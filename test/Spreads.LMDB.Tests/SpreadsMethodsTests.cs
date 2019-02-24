@@ -18,7 +18,7 @@ namespace Spreads.LMDB.Tests
         public void CouldFindNoDup()
         {
             var env = LMDBEnvironment.Create("./Data/CouldFindNoDup",
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("CouldFindNoDup", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey));
@@ -372,7 +372,7 @@ namespace Spreads.LMDB.Tests
         public void CouldFindDup()
         {
             var env = LMDBEnvironment.Create(TestUtils.GetPath(),
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("CouldFindDup", new DatabaseConfig(DbFlags.Create | DbFlags.IntegerKey | DbFlags.DuplicatesFixed | DbFlags.IntegerDuplicates));
@@ -738,7 +738,7 @@ namespace Spreads.LMDB.Tests
             var path = TestUtils.GetPath();
             Console.WriteLine(Path.GetFullPath(path));
             var env = LMDBEnvironment.Create(path,
-                 DbEnvironmentFlags.NoSync);
+                 LMDBEnvironmentFlags.NoSync);
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
 
@@ -872,7 +872,7 @@ namespace Spreads.LMDB.Tests
         {
             var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path,
-                 DbEnvironmentFlags.NoSync, disableAsync: true);
+                 LMDBEnvironmentFlags.NoSync, disableAsync: true);
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
 
@@ -1154,7 +1154,7 @@ namespace Spreads.LMDB.Tests
         public void CouldFindDupDSIssue()
         {
             var env = LMDBEnvironment.Create("./Data/CouldFindDup",
-                DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
 
             var db = env.OpenDatabase("_streamLogs",

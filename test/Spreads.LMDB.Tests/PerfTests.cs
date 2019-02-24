@@ -39,7 +39,7 @@ namespace Spreads.LMDB.Tests
             Directory.CreateDirectory(dirS);
             Directory.CreateDirectory(dirK);
 
-            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.MapAsync,
+            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.MapAsync,
                 disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
@@ -136,7 +136,7 @@ namespace Spreads.LMDB.Tests
 #pragma warning disable 618
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
-            var count = 100_000;
+            var count = 1000_000;
             var rounds = 1;
             var extraRounds = 10;
 
@@ -151,7 +151,7 @@ namespace Spreads.LMDB.Tests
             Directory.CreateDirectory(dirS);
             Directory.CreateDirectory(dirK);
 
-            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.None, disableAsync: true);
+            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.MapAsync, disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
@@ -249,7 +249,7 @@ namespace Spreads.LMDB.Tests
             Directory.CreateDirectory(dirS);
             Directory.CreateDirectory(dirK);
 
-            var envS = LMDBEnvironment.Create(dirS, DbEnvironmentFlags.WriteMap | DbEnvironmentFlags.NoMetaSync,
+            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoMetaSync,
                 disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 16 * 1024 * 1024;
