@@ -5,6 +5,7 @@
 using Spreads.Buffers;
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
+using Spreads.Serialization;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -12,7 +13,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Spreads.Serialization;
 
 namespace Spreads.LMDB
 {
@@ -206,7 +206,19 @@ namespace Spreads.LMDB
             ReadTxnPool = new LockedObjectPool<TransactionImpl>(poolSize, () => { return null; }, false);
         }
 
-        public bool AutoCommit { get; set; } = false;
+        /// <summary>
+        /// Automatically abort a write transaction on dispose without explicit commit or dispose.
+        /// If this property is set to false then explicit abort or commit is required, otherwise
+        /// <see cref="InvalidOperationException"/> is thrown.
+        /// </summary>
+        /// <remarks>
+        /// It's not clear if auto abort or auto commit are more intuitive with `using(){}` pattern,
+        /// but both make debugging harder and errors hard to find.
+        /// Auto abort is better because `using(){}` guarantees (as in `try/finally`) disposal on
+        /// an exception and native transaction will be closed without changing existing data.
+        /// Commiting after an unhandled exception is obviously wrong.
+        /// </remarks>
+        public bool AutoAbort { get; set; } = false;
 
         public object Write(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
@@ -647,7 +659,6 @@ namespace Spreads.LMDB
             var used = UsedSize;
             if (megabytes == 0)
             {
-                
                 size = (int)((MapSize - used) / 2);
                 if (size == 0)
                 {
@@ -714,7 +725,6 @@ namespace Spreads.LMDB
             {
                 Marshal.FreeHGlobal(ptr);
             }
-            
         }
 
         /// <summary>

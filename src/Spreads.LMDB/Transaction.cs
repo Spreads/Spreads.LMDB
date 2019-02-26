@@ -253,15 +253,11 @@ namespace Spreads.LMDB
                 {
                     if (_state == TransactionState.Active)
                     {
-                        if (LmdbEnvironment.AutoCommit)
+                        NativeMethods.mdb_txn_abort(_handle);
+
+                        if (!LmdbEnvironment.AutoAbort)
                         {
-                            NativeMethods.mdb_txn_commit(_handle);
-                        }
-                        else
-                        {
-                            NativeMethods.mdb_txn_abort(_handle);
-                            // This should not be catchable
-                            FailDisposingActiveTransaction();
+                            ThrowDisposingActiveTransaction();
                         }
                     }
                 }
@@ -314,10 +310,9 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void FailDisposingActiveTransaction()
+        private static void ThrowDisposingActiveTransaction()
         {
-            Environment.FailFast(
-                "Transaction was not either commited or aborted. Aborting it. Set Environment.AutoCommit to true to commit automatically on transaction end.");
+            throw new InvalidOperationException("Transaction was not either commited or aborted. Aborting it. Set Environment.AutoAbort to true to avoid this exception.");
         }
 
         internal IntPtr Handle
