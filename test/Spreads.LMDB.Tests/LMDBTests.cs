@@ -699,53 +699,53 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
-[Test]
-public void CouldWriteLongDups()
-{
-    var path = TestUtils.GetPath();
-    var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
-
-    env.MapSize = 100 * 1024 * 1024;
-    env.Open();
-
-    var db = env.OpenDatabase("dupfixed_db",
-        new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
-    ulong count = 100;
-
-    using (Benchmark.Run("Long Wrt+TFD", (long)count))
-    {
-        for (ulong i = 1; i < count; i++)
+        [Test]
+        public void CouldWriteLongDups()
         {
-            var key = 0;
-            var value = i;
-            try
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
+
+            env.MapSize = 100 * 1024 * 1024;
+            env.Open();
+
+            var db = env.OpenDatabase("dupfixed_db",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
+            ulong count = 100;
+
+            using (Benchmark.Run("Long Wrt+TFD", (long)count))
             {
-                db.Put(0, i, TransactionPutOptions.AppendDuplicateData);
-
-                using (var txn = env.BeginReadOnlyTransaction())
+                for (ulong i = 1; i < count; i++)
                 {
-                    if (!db.TryFindDup(txn, Lookup.EQ, ref key, ref value))
+                    var key = 0;
+                    var value = i;
+                    try
                     {
-                        Assert.Fail("!db.TryGet(txn, ref key, out value)");
-                    }
+                        db.Put(0, i, TransactionPutOptions.AppendDuplicateData);
 
-                    if (value != i)
+                        using (var txn = env.BeginReadOnlyTransaction())
+                        {
+                            if (!db.TryFindDup(txn, Lookup.EQ, ref key, ref value))
+                            {
+                                Assert.Fail("!db.TryGet(txn, ref key, out value)");
+                            }
+
+                            if (value != i)
+                            {
+                                Assert.Fail($"value {value} != i {i}");
+                            }
+                        }
+                    }
+                    catch (Exception e)
                     {
-                        Assert.Fail($"value {value} != i {i}");
+                        Console.WriteLine(e.ToString());
                     }
                 }
             }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.ToString());
-            }
-        }
-    }
 
-    Benchmark.Dump();
-    db.Dispose();
-    env.Dispose();
-}
+            Benchmark.Dump();
+            db.Dispose();
+            env.Dispose();
+        }
 
         [Test]
         public async Task CouldDeleteDupSorted()
@@ -1162,6 +1162,54 @@ public void CouldWriteLongDups()
             }
             db.Dispose();
             env.Close().Wait();
+        }
+
+        [Test]
+        public unsafe void Issue24()
+        {
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path);
+            env.Open();
+            var key = "salamo";
+            var value = "simoliakho";
+            var keybb = Encoding.UTF8.GetBytes(key);
+            var valuebb = Encoding.UTF8.GetBytes(value);
+
+            using (var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)))
+            {
+                env.Write(tx =>
+                {
+                    fixed (byte* keyPtr = &keybb[0], valPtr = &valuebb[0])
+                    {
+                        var keydb = new DirectBuffer(keybb.Length, keyPtr);
+                        var valuedb = new DirectBuffer(valuebb.Length, valPtr);
+                        db.Put(tx, ref keydb, ref valuedb, TransactionPutOptions.NoDuplicateData);
+                    }
+                    tx.Commit();
+                });
+
+                env.Read(tx =>
+                {
+                    fixed (byte* keyPtr = &keybb[0])
+                    {
+                        var keydb = new DirectBuffer(keybb.Length, keyPtr);
+                        DirectBuffer valuedb = default;
+                        Assert.IsTrue(db.TryGet(tx, ref keydb, out valuedb));
+                        Assert.AreEqual(value, Encoding.UTF8.GetString(valuedb.Span.ToArray()));
+                    }
+                });
+
+                using (var tx = env.BeginReadOnlyTransaction())
+                using (var c = db.OpenReadOnlyCursor(tx))
+                {
+                    fixed (byte* keyPtr = &keybb[0])
+                    {
+                        var keydb = new DirectBuffer(keybb.Length, keyPtr);
+                        DirectBuffer valuedb = default;
+                        Assert.IsTrue(c.TryFind(Spreads.Lookup.EQ, ref keydb, out valuedb));
+                    }
+                }
+            }
         }
     }
 }
