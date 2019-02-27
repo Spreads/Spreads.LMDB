@@ -1172,44 +1172,48 @@ namespace Spreads.LMDB.Tests
             env.Open();
             var key = "salamo";
             var value = "simoliakho";
-            var keybb = Encoding.UTF8.GetBytes(key);
-            var valuebb = Encoding.UTF8.GetBytes(value);
+
+            var keyLen = Encoding.UTF8.GetByteCount(key);
+            var keyBytes = stackalloc byte[keyLen];
+
+            var valLen = Encoding.UTF8.GetByteCount(value);
+            var valBytes = stackalloc byte[valLen];
+
+            fixed (char* keyCPtr = key, valCPtr = value)
+            {
+                Encoding.UTF8.GetBytes(keyCPtr, key.Length, keyBytes, keyLen);
+                Encoding.UTF8.GetBytes(valCPtr, value.Length, valBytes, valLen);
+            }
 
             using (var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)))
             {
-                env.Write(tx =>
+                using (var tx = env.BeginTransaction())
                 {
-                    fixed (byte* keyPtr = &keybb[0], valPtr = &valuebb[0])
-                    {
-                        var keydb = new DirectBuffer(keybb.Length, keyPtr);
-                        var valuedb = new DirectBuffer(valuebb.Length, valPtr);
-                        db.Put(tx, ref keydb, ref valuedb, TransactionPutOptions.NoDuplicateData);
-                    }
-                    tx.Commit();
-                });
+                    var keydb = new DirectBuffer(keyLen, keyBytes);
+                    var valuedb = new DirectBuffer(valLen, valBytes);
+                    db.Put(tx, ref keydb, ref valuedb, TransactionPutOptions.NoDuplicateData);
 
-                env.Read(tx =>
+                    tx.Commit();
+                }
+
+                using (var tx = env.BeginReadOnlyTransaction())
                 {
-                    fixed (byte* keyPtr = &keybb[0])
-                    {
-                        var keydb = new DirectBuffer(keybb.Length, keyPtr);
-                        DirectBuffer valuedb = default;
-                        Assert.IsTrue(db.TryGet(tx, ref keydb, out valuedb));
-                        Assert.AreEqual(value, Encoding.UTF8.GetString(valuedb.Span.ToArray()));
-                    }
-                });
+                    var keydb = new DirectBuffer(keyLen, keyBytes);
+                    DirectBuffer valuedb = default;
+                    Assert.IsTrue(db.TryGet(tx, ref keydb, out valuedb));
+                    Assert.AreEqual(value, Encoding.UTF8.GetString(valuedb.Span.ToArray()));
+                }
 
                 using (var tx = env.BeginReadOnlyTransaction())
                 using (var c = db.OpenReadOnlyCursor(tx))
                 {
-                    fixed (byte* keyPtr = &keybb[0])
-                    {
-                        var keydb = new DirectBuffer(keybb.Length, keyPtr);
-                        DirectBuffer valuedb = default;
-                        Assert.IsTrue(c.TryFind(Spreads.Lookup.EQ, ref keydb, out valuedb));
-                    }
+                    var keydb = new DirectBuffer(keyLen, keyBytes);
+                    DirectBuffer valuedb = default;
+                    Assert.IsTrue(c.TryFind(Spreads.Lookup.EQ, ref keydb, out valuedb));
                 }
             }
+
+            env.Dispose();
         }
     }
 }
