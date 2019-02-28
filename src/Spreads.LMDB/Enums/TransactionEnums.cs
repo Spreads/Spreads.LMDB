@@ -48,8 +48,11 @@ namespace Spreads.LMDB
     /// <summary>
     /// Transaction state.
     /// </summary>
-    internal enum TransactionState
+    public enum TransactionState
     {
+        /// <summary>
+        /// 
+        /// </summary>
         Disposed,
 
         /// <summary>
@@ -63,9 +66,9 @@ namespace Spreads.LMDB
         Aborted,
 
         /// <summary>
-        /// Transaction is commited.
+        /// Transaction is committed.
         /// </summary>
-        Commited,
+        Committed,
 
         /// <summary>
         /// Transaction is reset.

@@ -21,6 +21,8 @@ namespace Spreads.LMDB
             _impl = txn;
         }
 
+        public TransactionState State => _impl.State;
+
         /// <summary>
         /// Commit all the operations of a transaction into the database.
         /// All cursors opened within the transaction will be closed by this call.
@@ -83,6 +85,8 @@ namespace Spreads.LMDB
         {
             _impl = txn;
         }
+
+        public TransactionState State => _impl.State;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
@@ -389,7 +393,7 @@ namespace Spreads.LMDB
             }
 
             NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(_handle));
-            _state = TransactionState.Commited;
+            _state = TransactionState.Committed;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
