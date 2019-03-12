@@ -1153,6 +1153,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldFindDupDSIssue()
         {
+            Settings.UseStructLayoutSizeAsBlittableSize = true;
             var env = LMDBEnvironment.Create("./Data/CouldFindDup",
                 LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();

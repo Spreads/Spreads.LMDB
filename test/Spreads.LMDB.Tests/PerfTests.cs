@@ -15,9 +15,6 @@ namespace Spreads.LMDB.Tests
     [TestFixture]
     public class PerfTests
     {
-
-        
-
         [Test, Explicit("long running")]
         public void SimpleWriteReadBenchmark()
         {
@@ -35,16 +32,14 @@ namespace Spreads.LMDB.Tests
             }
 
             var dirS = Path.Combine(path, "Spreads");
-            var dirK = Path.Combine(path, "KdSoft");
             Directory.CreateDirectory(dirS);
-            Directory.CreateDirectory(dirK);
 
-            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.MapAsync,
+            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.NoSync,
                 disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
-            // envS.TouchSpace(500);
+            envS.TouchSpace(500);
 
             Console.WriteLine("USED SIZE: " + envS.UsedSize);
 
@@ -56,9 +51,9 @@ namespace Spreads.LMDB.Tests
                 {
                     for (long i = r * count; i < (r + 1) * count; i++)
                     {
-                        using (var tx = envS.BeginTransaction(TransactionBeginFlags.NoMetaSync))
+                        using (var tx = envS.BeginTransaction(TransactionBeginFlags.ReadWrite))
                         {
-                            dbS.Put(tx, i, i, TransactionPutOptions.None);
+                            dbS.Put(tx, i, i, TransactionPutOptions.AppendData);
                             tx.Commit();
                         }
                     }
