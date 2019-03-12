@@ -13,6 +13,6 @@ set "build=build%fullstamp%"
 echo build: "%build%"
 
 dotnet restore ..\src\Spreads.LMDB
-dotnet pack ..\src\Spreads.LMDB -c RELEASE -o C:\tools\LocalNuget --version-suffix "%build%"
+dotnet pack ..\src\Spreads.LMDB -c RELEASE -o C:\transient\LocalNuget --version-suffix "%build%"
 
 pause

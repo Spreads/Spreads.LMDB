@@ -12,6 +12,6 @@ REM echo fullstamp: "%fullstamp%"
 set "build=build%fullstamp%"
 echo build: "%build%"
 
-dotnet pack ..\src\Spreads.LMDB -c DEBUG -o C:\tools\LocalNuget --include-symbols --version-suffix "%build%"
+dotnet pack ..\src\Spreads.LMDB -c DEBUG -o C:\transient\LocalNuget --include-symbols --version-suffix "%build%"
 
 pause
