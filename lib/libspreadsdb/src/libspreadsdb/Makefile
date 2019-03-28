@@ -1,7 +1,7 @@
 # Makefile for LMDB with Spreads extensions
 # win target to build on Windows with MinGW
 # lin target to build for Linux from WSL
-CC = gcc  # clang++, g++ or just gcc if not compiling Snappy (C++ code)
+CC = gcc
 AR	= ar
 W	= -W -Wall -Wno-unused-parameter -Wbad-function-cast -Wuninitialized
 THREADS = -pthread

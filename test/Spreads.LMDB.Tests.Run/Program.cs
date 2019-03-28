@@ -30,9 +30,9 @@ namespace Spreads.LMDB.Tests.Run
 
             Trace.Listeners.Add(new ConsoleListener());
 
-            var tests = new PerfTests();
+            var tests = new SpreadsMethodsTests();
 
-            tests.SimpleWriteReadBatchedBenchmark();
+            tests.CouldFindDupWideKey();
 
             Console.WriteLine("Finished");
             Console.ReadLine();

@@ -22,12 +22,12 @@ namespace Spreads.LMDB.Tests
     public class LMDBTests
     {
         [Test]
-        public unsafe void CouldCreateEnvironment()
+        public async Task CouldCreateEnvironment()
         {
-            var x = Marshal.AllocHGlobal(128);
-            var y = Marshal.AllocHGlobal(128);
+            //var x = Marshal.AllocHGlobal(128);
+            //var y = Marshal.AllocHGlobal(128);
 
-            Spreads.Native.Compression.shuffle((IntPtr)8, (IntPtr)16, (byte*)x, (byte*)y);
+            //Spreads.Native.Compression.shuffle((IntPtr)8, (IntPtr)16, (byte*)x, (byte*)y);
 
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
             Console.WriteLine(LMDBVersionInfo.Version);
@@ -37,7 +37,7 @@ namespace Spreads.LMDB.Tests
             Console.WriteLine("entries: " + stat.ms_entries);
             Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
             Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
-            env.Close().Wait();
+            await env.Close();
         }
 
         [Test]
@@ -69,7 +69,7 @@ namespace Spreads.LMDB.Tests
             await env.Close();
         }
 
-        [Test]
+        [Test, Ignore("")]
         public void CouldTouchSpace()
         {
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
@@ -1156,7 +1156,7 @@ namespace Spreads.LMDB.Tests
         public void CouldOpenRoCursorFromWriteTxn()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
@@ -1174,7 +1174,7 @@ namespace Spreads.LMDB.Tests
         public unsafe void Issue24()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap);
             env.Open();
             var key = "salamo";
             var value = "simoliakho";

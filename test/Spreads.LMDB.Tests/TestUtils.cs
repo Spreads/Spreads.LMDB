@@ -1,12 +1,13 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace Spreads.LMDB.Tests
 {
     public static class TestUtils
     {
-        public static string BaseDataPath = "./Data/tmp/TestData/";
+        public static string BaseDataPath = "./Datax/";
 
         public static bool InDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
 
@@ -25,7 +26,11 @@ namespace Spreads.LMDB.Tests
             [CallerFilePath]string groupPath = null,
             bool clear = true)
         {
-            var group = Path.GetFileNameWithoutExtension(groupPath);
+            var group =
+                InDocker
+                    ? groupPath.Split("\\").Last().Replace(".cs", "")
+                    :
+                Path.GetFileName(Path.GetFileNameWithoutExtension(groupPath));
             var path = Path.Combine(BaseDataPath, group, testPath);
             if (!Directory.Exists(path))
             {

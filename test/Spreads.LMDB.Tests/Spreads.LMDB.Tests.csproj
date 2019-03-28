@@ -5,6 +5,7 @@
     <AssemblyName>Spreads.LMDB.Tests</AssemblyName>
     <RootNamespace>Spreads.LMDB.Tests</RootNamespace>
     <LangVersion>7.2</LangVersion>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <PropertyGroup>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
