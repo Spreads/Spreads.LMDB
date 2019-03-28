@@ -131,7 +131,7 @@ namespace Spreads.LMDB.Tests
 #pragma warning disable 618
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
-            var count = 1000_000;
+            var count = TestUtils.GetBenchCount(TestUtils.InDocker ? 100_000 : 1000_000, 100_000);
             var rounds = 1;
             var extraRounds = 10;
 

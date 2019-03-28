@@ -2,44 +2,22 @@
   <Import Project="..\..\build\common.props" />
   <PropertyGroup>
     <Description>LMDB wrapper with some additional native helper methods useful for Spreads.</Description>
-
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <AssemblyName>Spreads.LMDB</AssemblyName>
-    <AssemblyOriginatorKeyFile>../../tools/SpreadsKey.snk</AssemblyOriginatorKeyFile>
-    <SignAssembly>true</SignAssembly>
-    <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
+    <AssemblyName>Spreads.LMDB</AssemblyName>  
     <PackageId>Spreads.LMDB</PackageId>
-    <GenerateNeutralResourcesLanguageAttribute>false</GenerateNeutralResourcesLanguageAttribute>
-    <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
-    <GenerateAssemblyCopyrightAttribute>false</GenerateAssemblyCopyrightAttribute>
-    <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
-    <DelaySign>False</DelaySign>
-    <LangVersion>7.3</LangVersion>
-    <DebugType>embedded</DebugType>
-    <DebugSymbols>true</DebugSymbols>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
-
   <ItemGroup>
-    <Compile Remove="SQLite\**" />
-    <EmbeddedResource Remove="SQLite\**" />
-    <None Remove="SQLite\**" />
+    <None Include="..\..\lib\runtimes\**\*.*">
+      <Pack>true</Pack>
+      <PackagePath>runtimes</PackagePath>
+    </None>
   </ItemGroup>
-
+  
   <ItemGroup>
-    <EmbeddedResource Include="..\..\lib\out\w64\bin\libspreads_lmdb.dll.compressed">
-      <Link>native\win.x64.libspreads_lmdb.dll</Link>
-      <LogicalName>win.x64.libspreads_lmdb.dll</LogicalName>
-    </EmbeddedResource>
-    <EmbeddedResource Include="..\..\lib\out\l64\bin\libspreads_lmdb.compressed">
-      <Link>native\lin.x64.libspreads_lmdb.so</Link>
-      <LogicalName>lin.x64.libspreads_lmdb.so</LogicalName>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="1.0.0-build1903121705R" />
+    <PackageReference Include="Spreads.Core" Version="1.0.0-build1903281258R" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.0-preview.18571.3" />
   </ItemGroup>
 

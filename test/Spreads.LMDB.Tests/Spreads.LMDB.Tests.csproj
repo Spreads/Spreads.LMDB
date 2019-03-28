@@ -1,25 +1,35 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-    <Import Project="..\..\build\common.props" />
-    <PropertyGroup>
-        <TargetFrameworks>netcoreapp2.1</TargetFrameworks>
-        <AssemblyName>Spreads.LMDB.Tests</AssemblyName>
-        <RootNamespace>Spreads.LMDB.Tests</RootNamespace>
-        <LangVersion>7.2</LangVersion>
-    </PropertyGroup>
-    <PropertyGroup>
-        <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-        <ApplicationIcon />
-        <OutputType>Library</OutputType>
-        <StartupObject />
-    </PropertyGroup>
-    <ItemGroup>
-        <PackageReference Include="Microsoft.CSharp" Version="4.6.0-preview3.19128.7" />
-        <PackageReference Include="System.Numerics.Vectors" Version="4.6.0-preview3.19128.7" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.0.1" />
-        <PackageReference Include="NUnit" Version="3.11.0" />
-        <PackageReference Include="NUnit3TestAdapter" Version="3.13.0" />
-    </ItemGroup>
-    <ItemGroup>
-      <ProjectReference Include="..\..\src\Spreads.LMDB\Spreads.LMDB.csproj" />
-    </ItemGroup>
+  <Import Project="..\..\build\common.props" />
+  <PropertyGroup>
+    <TargetFrameworks>netcoreapp3.0</TargetFrameworks>
+    <AssemblyName>Spreads.LMDB.Tests</AssemblyName>
+    <RootNamespace>Spreads.LMDB.Tests</RootNamespace>
+    <LangVersion>7.2</LangVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <ApplicationIcon />
+    <OutputType>Library</OutputType>
+    <StartupObject />
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CSharp" Version="4.6.0-preview3.19128.7" />
+    <PackageReference Include="System.Numerics.Vectors" Version="4.6.0-preview3.19128.7" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.0.1" />
+    <PackageReference Include="NUnit" Version="3.11.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.13.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Spreads.LMDB\Spreads.LMDB.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <NativeLibs Include="..\..\lib\runtimes\**\*.*" Exclude="$(MSBuildThisFileDirectory)**\*.targets" />
+    <None Include="@(NativeLibs)">
+      <Link>%(FileName)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>False</Visible>
+    </None>
+  </ItemGroup>
 </Project>

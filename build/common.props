@@ -1,34 +1,22 @@
 <Project>
-    <PropertyGroup>
-        <VersionPrefix>1.0.0</VersionPrefix>
-        <VersionSuffix>alpha</VersionSuffix>
-        <VersionSuffix Condition="'$(VersionSuffix)' != '' And '$(BuildNumber)' != ''">$(VersionSuffix)-$(BuildNumber)</VersionSuffix>
-        <PackageTags>LMDB;Data;Spreads</PackageTags>
-        <Product>Spreads</Product>
-        <RepositoryType>git</RepositoryType>
-        <RepositoryUrl>https://github.com/Spreads/LMDB.git</RepositoryUrl>
-        <Authors>Victor Baybekov</Authors>
-        <Company />
-        <Product />
-        <Copyright>Victor Baybekov</Copyright>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn),1591</NoWarn>
-        <SignAssembly>true</SignAssembly>
-        <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
-        <AssemblyOriginatorKeyFile>..\..\tools\SpreadsKey.snk</AssemblyOriginatorKeyFile>
-        <DelaySign>false</DelaySign>
-    </PropertyGroup>
+  <!-- common.props is per repo config -->
+  <Import Project="Spreads.props" />
+  <PropertyGroup>
+    <PackageTags>LMDB;Spreads</PackageTags>
+    <PackageProjectUrl>http://docs.dataspreads.io/spreads/libs/lmdb/api/README.html</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Spreads/LMDB.git</RepositoryUrl>
+  </PropertyGroup>
 
-    <PropertyGroup>
-        <DefineConstants>$(DefineConstants);NETSTANDARD;NETSTANDARD20</DefineConstants>
-    </PropertyGroup>
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);NETSTANDARD;NETSTANDARD20</DefineConstants>
+  </PropertyGroup>
 
-    <PropertyGroup Condition="'$(Configuration)'=='Debug'">
-        <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
-        <DefineConstants>$(DefineConstants);TRACE;DEBUG</DefineConstants>
-    </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <CheckForOverflowUnderflow>True</CheckForOverflowUnderflow>
+    <DefineConstants>$(DefineConstants);TRACE;DEBUG</DefineConstants>
+  </PropertyGroup>
 
-    <PropertyGroup>
-        <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
-    </PropertyGroup>
+  <PropertyGroup>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+  </PropertyGroup>
 </Project>

@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Runtime.CompilerServices;
 
 namespace Spreads.LMDB.Tests
@@ -6,6 +7,8 @@ namespace Spreads.LMDB.Tests
     public static class TestUtils
     {
         public static string BaseDataPath = "./Data/tmp/TestData/";
+
+        public static bool InDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
 
         public static void ClearAll([CallerFilePath]string groupPath = null)
         {
@@ -43,6 +46,20 @@ namespace Spreads.LMDB.Tests
             }
 
             return path;
+        }
+
+        public static long GetBenchCount(long count = 1_000_000, long debugCount = -1)
+        {
+#if DEBUG
+            if (debugCount <= 0)
+            {
+                return 100;
+            }
+
+            return debugCount;
+#else
+            return count;
+#endif
         }
     }
 }

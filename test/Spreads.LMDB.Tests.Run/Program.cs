@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace Spreads.LMDB.Tests.Run
@@ -19,8 +20,14 @@ namespace Spreads.LMDB.Tests.Run
 
     internal class Program
     {
-        private static async Task Main(string[] args)
+        private static unsafe void Main(string[] args)
         {
+            var x = Marshal.AllocHGlobal(128);
+            var y = Marshal.AllocHGlobal(128);
+
+            Spreads.Native.Compression.shuffle((IntPtr)8, (IntPtr)16, (byte*)x, (byte*)y);
+
+
             Trace.Listeners.Add(new ConsoleListener());
 
             var tests = new PerfTests();

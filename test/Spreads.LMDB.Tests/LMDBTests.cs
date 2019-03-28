@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,8 +22,13 @@ namespace Spreads.LMDB.Tests
     public class LMDBTests
     {
         [Test]
-        public async Task CouldCreateEnvironment()
+        public unsafe void CouldCreateEnvironment()
         {
+            var x = Marshal.AllocHGlobal(128);
+            var y = Marshal.AllocHGlobal(128);
+
+            Spreads.Native.Compression.shuffle((IntPtr)8, (IntPtr)16, (byte*)x, (byte*)y);
+
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
             Console.WriteLine(LMDBVersionInfo.Version);
             var env = LMDBEnvironment.Create("./Data/CouldCreateEnvironment");
@@ -31,7 +37,7 @@ namespace Spreads.LMDB.Tests
             Console.WriteLine("entries: " + stat.ms_entries);
             Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
             Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
-            await env.Close();
+            env.Close().Wait();
         }
 
         [Test]
