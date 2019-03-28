@@ -4,7 +4,7 @@
   <PropertyGroup>
     <PackageTags>LMDB;Spreads</PackageTags>
     <PackageProjectUrl>http://docs.dataspreads.io/spreads/libs/lmdb/api/README.html</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Spreads/LMDB.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Spreads/Spreads.LMDB.git</RepositoryUrl>
   </PropertyGroup>
 
   <PropertyGroup>

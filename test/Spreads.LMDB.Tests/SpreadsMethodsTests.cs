@@ -867,7 +867,7 @@ namespace Spreads.LMDB.Tests
             env.Close().Wait();
         }
 
-        [Test, Ignore("TODO")]
+        [Test, Explicit("TODO")]
         public void CouldFindDupWideKey()
         {
             var path = TestUtils.GetPath();
@@ -907,7 +907,7 @@ namespace Spreads.LMDB.Tests
                 }
             }
 
-            var rounds = 10;
+            var rounds = 1;
             for (int r = 0; r < rounds; r++)
             {
                 using (Benchmark.Run("WideKeyFind", count * 5))
