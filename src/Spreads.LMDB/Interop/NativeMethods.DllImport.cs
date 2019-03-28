@@ -17,26 +17,6 @@ namespace Spreads.LMDB.Interop
     [System.Security.SuppressUnmanagedCodeSecurity]
     internal static unsafe partial class NativeMethods
     {
-        // NB unmanaged calli is no faster than DllImport, need other reasons to use it.
-        // private static readonly bool UseCalli = IntPtr.Size == 8; // LMDB won't work on x86, so this means true
-
-        static NativeMethods()
-        {
-            // Ensure Bootstrapper is initialized and native libraries are loaded
-            Bootstrapper.Instance.Bootstrap<LMDBEnvironment>(
-                DbLibraryName,
-                null,
-                () => { Debug.WriteLine("Native pre-copy"); },
-                (lib) =>
-                {
-                    //mdb_get_ptr = lib.GetFunctionPtr("mdb_get");
-                    //mdb_put_ptr = lib.GetFunctionPtr("mdb_put");
-
-                    Debug.WriteLine("Native post-copy");
-                },
-                () => { Debug.WriteLine("Native dispose"); });
-        }
-
         public const string DbLibraryName = "libspreads_lmdb";
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]

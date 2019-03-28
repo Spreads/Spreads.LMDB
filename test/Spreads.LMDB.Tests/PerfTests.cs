@@ -132,7 +132,7 @@ namespace Spreads.LMDB.Tests
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
             var count = TestUtils.GetBenchCount(TestUtils.InDocker ? 100_000 : 1000_000, 100_000);
-            var rounds = 1;
+            var rounds = 10;
             var extraRounds = 10;
 
             var path = "./data/benchmarkbatched";
