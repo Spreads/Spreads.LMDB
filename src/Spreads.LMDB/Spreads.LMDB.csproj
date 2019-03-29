@@ -17,8 +17,8 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="1.0.0-build1903281258R" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.6.0-preview.18571.3" />
+    <PackageReference Include="Spreads.Core" Version="2019.0.328" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.2" />
   </ItemGroup>
 
 </Project>
