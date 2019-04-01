@@ -13,6 +13,22 @@ variables:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
 jobs:
+
+- job: Mac
+  pool:
+    vmImage: 'macOS-10.13'
+
+  steps:
+  - task: DotNetCoreInstaller@0
+    inputs:
+      version: '3.0.100-preview4-010538'
+
+  - script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -f netcoreapp3.0 -c Debug -v m
+    displayName: 'Test Debug netcoreapp3.0'
+
+  - script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -f netcoreapp3.0 -c Release -v m
+    displayName: 'Test Release netcoreapp3.0'
+
 - job: Linux
   pool:
     vmImage: 'ubuntu-16.04'
