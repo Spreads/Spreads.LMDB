@@ -1,6 +1,8 @@
-|   Linux   |  Windows  | 
-|:---------:|:---------:|
-| [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Linux)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Windows)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | 
+|   Linux   |  Windows  |    Mac    | 
+|:---------:|:---------:|:---------:|
+| [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Linux)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Windows)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Mac)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) |
+
+
 
 # Spreads.LMDB
 
