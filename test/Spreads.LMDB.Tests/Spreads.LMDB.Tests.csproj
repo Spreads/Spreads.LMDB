@@ -4,7 +4,7 @@
     <TargetFrameworks>netcoreapp3.0</TargetFrameworks>
     <AssemblyName>Spreads.LMDB.Tests</AssemblyName>
     <RootNamespace>Spreads.LMDB.Tests</RootNamespace>
-    <LangVersion>7.2</LangVersion>
+    <LangVersion>7.3</LangVersion>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <PropertyGroup>

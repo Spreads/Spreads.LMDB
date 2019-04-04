@@ -52,9 +52,8 @@ bounds checks off, but you can still do so e.g. if you read separate bytes of la
 
 Any fixed-sized `unmanaged` structs could be used directly as keys/values. Until `unmanaged`
 constraint and blittable helpers (at least `IsBlittable`) are widly available we use
-opt-in to treat a *custom user-defined* struct as blittable. It must have explicit `Size`
-parameter in `[StructLayout(LayoutKind.Sequential, Size = XX)]` or defined Spreads' 
-[`SerializationAttribute`](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Serialization/SerializationAttribute.cs)
+opt-in to treat a *custom user-defined* struct as blittable. It must have defined Spreads' 
+[`BinarySerializationAttribute`](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Serialization/BinarySerializationAttribute.cs)
 with `BlittableSize` parameter for non-generic types or `PreferBlittable` set to `true`
 for generic types that could be blittable depending on a concrete type. The logic to decide
 if a type is fixed-size is in [TypeHelper<T>](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Serialization/TypeHelper.cs)

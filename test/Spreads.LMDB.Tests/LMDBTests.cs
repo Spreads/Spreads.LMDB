@@ -11,7 +11,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -738,6 +737,54 @@ namespace Spreads.LMDB.Tests
                             if (value != i)
                             {
                                 Assert.Fail($"value {value} != i {i}");
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.ToString());
+                    }
+                }
+            }
+
+            Benchmark.Dump();
+            db.Dispose();
+            env.Dispose();
+        }
+
+        [Test, Ignore("Must support value fixed-size tuple, Spreads.Core serializes them as fixed size.")]
+        public void CouldWriteTupleDups()
+        {
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
+
+            env.MapSize = 100 * 1024 * 1024;
+            env.Open();
+
+            var db = env.OpenDatabase("dupfixed_db",
+                new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
+            ulong count = 100;
+
+            using (Benchmark.Run("Long Wrt+TFD", (long)count))
+            {
+                for (ulong i = 1; i < count; i++)
+                {
+                    var key = 0;
+                    var value = (i, i);
+                    try
+                    {
+                        db.Put(0, (i, i), TransactionPutOptions.AppendDuplicateData);
+
+                        using (var txn = env.BeginReadOnlyTransaction())
+                        {
+                            if (!db.TryFindDup(txn, Lookup.EQ, ref key, ref value))
+                            {
+                                Assert.Fail("!db.TryGet(txn, ref key, out value)");
+                            }
+
+                            if (value != (i, i))
+                            {
+                                Assert.Fail($"value {value} != (i,i) {(i, i)}");
                             }
                         }
                     }
