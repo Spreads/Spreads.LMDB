@@ -3,7 +3,6 @@
 | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Linux)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Windows)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Mac)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) |
 
 
-
 # Spreads.LMDB
 
 Low-level zero-overhead and [the fastest](https://github.com/Spreads/Spreads.LMDB/commit/4085dde649ef9ebb64310f2627299762dd62d5ce) LMDB .NET wrapper with some additional native 
@@ -11,7 +10,7 @@ methods useful for [Spreads](https://github.com/Spreads/).
 
 Available on NuGet as [Spreads.LMDB](https://www.nuget.org/packages/Spreads.LMDB).
 
-## Full C# `async/await` support
+## C# `async/await` support
 
 LMDB's supported "normal" case is when a transaction is executed from a single thread. For .NET this means 
 that if all operations on a transactions are called from a single thread it doesn't matter which
@@ -23,8 +22,8 @@ attribute for environments:
 
 > A thread may use parallel read-only transactions. A read-only transaction may span threads if the user synchronizes its use. Applications that multiplex many user threads over individual OS threads need this option. Such an application must also serialize the write transactions in an OS thread, since LMDB's write locking is unaware of the user threads.
 
-Async support is enabled by default, but could be switched off 
-via `LMDBEnvironment.Create(..., disableAsync: true);` if not used.
+Async support is **disabled** by default, but could be turned on 
+via `LMDBEnvironment.Create(..., disableAsync: false);` if needed.
 
 ## Read-only transaction and cursor renewal
 

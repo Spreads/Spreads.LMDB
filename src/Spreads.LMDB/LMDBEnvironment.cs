@@ -61,12 +61,12 @@ namespace Spreads.LMDB
         /// <param name="accessMode">Unix file access privelegies (optional). Only makes sense on unix operationg systems.</param>
         /// <param name="disableAsync">Disable dedicated writer thread and NO_TLS option.
         /// Fire-and-forget option for write transaction will throw.
-        /// .NET async cannot be used in transaction body. </param>
+        /// .NET async cannot be used in transaction body. True by default. </param>
         /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them. Should be true for multiple (a lot of) processes accessing the same env.</param>
         public static LMDBEnvironment Create(string directory = null,
             LMDBEnvironmentFlags openFlags = LMDBEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
-            bool disableAsync = false, bool disableReadTxnAutoreset = false)
+            bool disableAsync = true, bool disableReadTxnAutoreset = false)
         {
 #pragma warning disable 618
             if (!disableAsync)
@@ -421,12 +421,12 @@ namespace Spreads.LMDB
         /// Attempts to use any such handles after calling this function will cause a SIGSEGV.
         /// The environment handle will be freed and must not be used again after this call.
         /// </summary>
-        public Task Close()
+        public void Close()
         {
-            return Close(false);
+            Close(false);
         }
 
-        private async Task Close(bool force)
+        private void Close(bool force)
         {
             _instanceCount--;
             if (_instanceCount < 0)
@@ -439,12 +439,22 @@ namespace Spreads.LMDB
                 {
                     GC.SuppressFinalize(this);
                 }
-                if (!_isOpen) return;
+
+                lock (ReadTxnPool) // just some internal obj that always exists
+                {
+                    if (!_isOpen)
+                    {
+                        return;
+                    }
+
+                    _isOpen = false;
+                }
+
                 if (_writeQueue != null)
                 {
                     _writeQueue.CompleteAdding();
                     // let finish already added write tasks
-                    await _writeTaskCompletion.Task;
+                    _writeTaskCompletion.Task.Wait();
                     Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
                 }
 
@@ -453,7 +463,7 @@ namespace Spreads.LMDB
                 _cts.Cancel();
                 // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
                 _handle.Dispose();
-                _isOpen = false;
+
                 _openEnvs.TryRemove(_directory, out _);
             }
         }
@@ -655,7 +665,7 @@ namespace Spreads.LMDB
         public unsafe long TouchSpace(int megabytes = 0)
         {
             EnsureOpened();
-            int size = 0;
+            int size;
             var used = UsedSize;
             if (megabytes == 0)
             {
@@ -752,7 +762,7 @@ namespace Spreads.LMDB
 
         private void Dispose(bool disposing)
         {
-            Close(!disposing).Wait();
+            Close(!disposing);
         }
 
         /// <summary>

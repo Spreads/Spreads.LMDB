@@ -36,7 +36,7 @@ namespace Spreads.LMDB.Tests
             Console.WriteLine("entries: " + stat.ms_entries);
             Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
             Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
-            await env.Close();
+            env.Close();
         }
 
         [Test]
@@ -50,7 +50,7 @@ namespace Spreads.LMDB.Tests
             Console.WriteLine("entries: " + stat.ms_entries);
             Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
             Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
-            await env.Close();
+            env.Close();
         }
 
         [Test]
@@ -65,7 +65,7 @@ namespace Spreads.LMDB.Tests
             Console.WriteLine("entries: " + stat.ms_entries);
             Console.WriteLine("MaxKeySize: " + env.MaxKeySize);
             Console.WriteLine("ReaderCheck: " + env.ReaderCheck());
-            await env.Close();
+            env.Close();
         }
 
         [Test, Ignore("")]
@@ -79,7 +79,7 @@ namespace Spreads.LMDB.Tests
             var used = env.TouchSpace(5);
             var stat = env.GetStat();
             Console.WriteLine("Used size: " + used);
-            env.Close().Wait();
+            env.Close();
 
             Console.WriteLine("Touch default: ");
 
@@ -90,7 +90,7 @@ namespace Spreads.LMDB.Tests
             used = env.TouchSpace();
             stat = env.GetStat();
             Console.WriteLine("Used size: " + used);
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test, Ignore("")]
@@ -144,7 +144,7 @@ namespace Spreads.LMDB.Tests
                 }, false).ConfigureAwait(false);
             }
 
-            await env.Close();
+            env.Close();
         }
 
         [Test]
@@ -237,7 +237,7 @@ namespace Spreads.LMDB.Tests
             var dbstat = db.GetStat();
             Console.WriteLine("Oveflow pages: " + stat.ms_overflow_pages);
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test]
@@ -362,7 +362,7 @@ namespace Spreads.LMDB.Tests
             var dbstat = db.GetStat();
             Console.WriteLine("Oveflow pages: " + stat.ms_overflow_pages);
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test]
@@ -399,7 +399,7 @@ namespace Spreads.LMDB.Tests
                 txn.Commit();
             });
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test]
@@ -444,7 +444,7 @@ namespace Spreads.LMDB.Tests
                 }
             });
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test, Explicit("long runnning")]
@@ -480,7 +480,7 @@ namespace Spreads.LMDB.Tests
                 }, false);
             }
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test, Explicit("long runnning")]
@@ -545,7 +545,7 @@ namespace Spreads.LMDB.Tests
                 return true;
             });
             db.Dispose();
-            await env.Close();
+            env.Close();
         }
 
         [Test, Explicit("long runnning")]
@@ -601,7 +601,7 @@ namespace Spreads.LMDB.Tests
                 return true;
             });
             db.Dispose();
-            await env.Close();
+            env.Close();
         }
 
         [Test, Explicit("long runnning")]
@@ -657,7 +657,7 @@ namespace Spreads.LMDB.Tests
                 return true;
             });
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test, Explicit("long runnning")]
@@ -701,7 +701,7 @@ namespace Spreads.LMDB.Tests
 
             Benchmark.Dump();
             db.Dispose();
-            await env.Close();
+            env.Close();
         }
 
         [Test]
@@ -885,7 +885,7 @@ namespace Spreads.LMDB.Tests
                 }
             }
             db.Dispose();
-            await env.Close();
+            env.Close();
         }
 
         [Test, Explicit("long runnning")]
@@ -946,7 +946,7 @@ namespace Spreads.LMDB.Tests
 
             Benchmark.Dump();
             db.Dispose();
-            await env.Close();
+            env.Close();
         }
 
         [BinarySerialization(16)]
@@ -1157,7 +1157,7 @@ namespace Spreads.LMDB.Tests
                 }
             }
             db.Dispose();
-            await env.Close();
+            env.Close();
         }
 
         [Test]
@@ -1170,13 +1170,13 @@ namespace Spreads.LMDB.Tests
             env2.Open();
             Assert.IsTrue(ReferenceEquals(env1, env2));
             Assert.IsTrue(env2.IsOpen);
-            env2.Close().Wait();
+            env2.Close();
             Assert.IsTrue(env1.IsOpen);
             var env3 = LMDBEnvironment.Create(path);
             Assert.IsTrue(ReferenceEquals(env1, env3));
-            env1.Close().Wait();
+            env1.Close();
             Assert.IsTrue(env3.IsOpen);
-            env3.Close().Wait();
+            env3.Close();
             Assert.IsFalse(env3.IsOpen);
         }
 
@@ -1214,7 +1214,7 @@ namespace Spreads.LMDB.Tests
             {
             }
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test]

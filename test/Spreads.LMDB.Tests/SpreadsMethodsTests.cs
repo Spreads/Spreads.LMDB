@@ -365,7 +365,7 @@ namespace Spreads.LMDB.Tests
             }
 
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test]
@@ -720,7 +720,7 @@ namespace Spreads.LMDB.Tests
                 txn.Abort();
             }
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 8, Size = 24)]
@@ -864,7 +864,7 @@ namespace Spreads.LMDB.Tests
             }
 
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
 
         [Test, Explicit("TODO")]
@@ -1128,7 +1128,7 @@ namespace Spreads.LMDB.Tests
 
             db.Dispose();
 
-            env.Close().Wait();
+            env.Close();
         }
 
         [StructLayout(LayoutKind.Explicit, Size = 32)]
@@ -1182,7 +1182,7 @@ namespace Spreads.LMDB.Tests
                 }
             }
             db.Dispose();
-            env.Close().Wait();
+            env.Close();
         }
     }
 }

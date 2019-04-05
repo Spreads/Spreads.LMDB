@@ -4,9 +4,7 @@
 
 using Spreads.Buffers;
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Spreads.Utils.Bootstrap;
 
 // ReSharper disable UnusedMember.Global
 
@@ -236,25 +234,6 @@ namespace Spreads.LMDB.Interop
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_put(IntPtr env, uint dbi, ref DirectBuffer key, ref DirectBuffer data, TransactionPutOptions flags);
-
-        // TODO these below have weird native implementation with nindsight (txn/cursor must be null or reset).
-        // Test showed that coalescing PInvokes gives little perf gain, so just probably remove these and native stuff.
-
-        //[DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        //public static extern int sdb_find_lt_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
-
-        //[DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        //public static extern int sdb_find_le_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
-
-        //[DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        //public static extern int sdb_find_eq_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
-
-        //[DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        //public static extern int sdb_find_ge_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
-
-        //[DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
-        //public static extern int sdb_find_gt_dup(IntPtr env, uint dbi, ref IntPtr txn, ref IntPtr cursor, ref DirectBuffer key, ref DirectBuffer data);
-
     }
 
 #pragma warning restore IDE1006 // Naming Styles
