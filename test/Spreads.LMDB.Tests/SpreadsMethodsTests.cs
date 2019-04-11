@@ -771,6 +771,21 @@ namespace Spreads.LMDB.Tests
                 Console.WriteLine(ex);
             }
 
+
+            using (Benchmark.Run("WideKeyRead", count * 5))
+            using (var txn = env.BeginReadOnlyTransaction())
+            using (var c = db.OpenReadOnlyCursor(txn))
+            {
+                var searchValue = new DupValueWithWideKey()
+                {
+                    First = 0,
+                    Second = (ulong)count * 10 + 5,
+                    Value = count * 10 + 5
+                };
+
+                Assert.IsFalse(c.TryFindDup(Lookup.GT, ref nodupKey, ref searchValue));
+            }
+
             using (Benchmark.Run("WideKeyRead", count * 5))
             using (var txn = env.BeginReadOnlyTransaction())
             using (var c = db.OpenReadOnlyCursor(txn))
@@ -784,7 +799,7 @@ namespace Spreads.LMDB.Tests
                         Value = i * 10 + 5
                     };
 
-                    c.TryFindDup(Lookup.GT, ref nodupKey, ref searchValue);
+                    Assert.IsTrue(c.TryFindDup(Lookup.GT, ref nodupKey, ref searchValue));
 
                     if (searchValue.Value != i * 10 + 5)
                     {

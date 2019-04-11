@@ -40,7 +40,7 @@ namespace Spreads.LMDB
         private readonly TaskCompletionSource<object> _writeTaskCompletion = new TaskCompletionSource<object>();
         private readonly CancellationTokenSource _cts;
         private readonly string _directory;
-        private bool _isOpen;
+        private volatile bool _isOpen;
 
         private uint _maxReaders;
 
@@ -69,11 +69,8 @@ namespace Spreads.LMDB
             bool disableAsync = true, bool disableReadTxnAutoreset = false)
         {
 #pragma warning disable 618
-            if (!disableAsync)
-            {
-                // we need NoTLS to work well with .NET Tasks, see docs about writers that need a dedicated thread
-                openFlags = openFlags | LMDBEnvironmentFlags.NoTls;
-            }
+            openFlags = openFlags | LMDBEnvironmentFlags.NoTls;
+
 #pragma warning restore 618
 
             // this is machine-local storage for each user.
@@ -470,14 +467,14 @@ namespace Spreads.LMDB
 
         public MDB_stat GetStat()
         {
-            EnsureOpened();
+            EnsureOpen();
             NativeMethods.AssertRead(NativeMethods.mdb_env_stat(_handle, out var stat));
             return stat;
         }
 
         public int ReaderCheck()
         {
-            EnsureOpened();
+            EnsureOpen();
             NativeMethods.AssertRead(NativeMethods.mdb_reader_check(_handle, out var dead));
             return dead;
         }
@@ -503,7 +500,7 @@ namespace Spreads.LMDB
 
         public MDB_envinfo GetEnvInfo()
         {
-            EnsureOpened();
+            EnsureOpen();
             NativeMethods.AssertExecute(NativeMethods.mdb_env_info(_handle, out var info));
             return info;
         }
@@ -664,7 +661,7 @@ namespace Spreads.LMDB
 
         public unsafe long TouchSpace(int megabytes = 0)
         {
-            EnsureOpened();
+            EnsureOpen();
             int size;
             var used = UsedSize;
             if (megabytes == 0)
@@ -727,7 +724,7 @@ namespace Spreads.LMDB
         /// <param name="compact">Omit empty pages when copying.</param>
         public void CopyTo(string path, bool compact = false)
         {
-            EnsureOpened();
+            EnsureOpen();
             var flags = compact ? LMDBEnvironmentCopyFlags.Compact : LMDBEnvironmentCopyFlags.None;
             var ptr = NativeMethods.StringToHGlobalUTF8(path);
             NativeMethods.AssertExecute(NativeMethods.mdb_env_copy2(_handle, ptr, flags));
@@ -749,13 +746,13 @@ namespace Spreads.LMDB
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void EnsureOpened()
+        internal void EnsureOpen()
         {
-            if (!_isOpen) { ThrowIfNotOpened(); }
+            if (!_isOpen) { ThrowIfNotOpen(); }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowIfNotOpened()
+        private static void ThrowIfNotOpen()
         {
             throw new InvalidOperationException("Environment should be opened");
         }

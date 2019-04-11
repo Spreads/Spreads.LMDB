@@ -148,7 +148,7 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static TransactionImpl Create(LMDBEnvironment lmdbEnvironment, TransactionBeginFlags beginFlags)
         {
-            lmdbEnvironment.EnsureOpened();
+            lmdbEnvironment.EnsureOpen();
 
             TransactionImpl tx;
 
