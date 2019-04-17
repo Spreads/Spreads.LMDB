@@ -1219,12 +1219,13 @@ namespace Spreads.LMDB.Tests
 
 
         [Test]
-        public void CursorCanTryGetWhenAllRecordsDeleted()
+        public unsafe void CursorCanTryGetWhenAllRecordsDeleted()
         {
             var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap);
             env.Open();
             var key = 42L;
+            // TODO this is not pinned and only works by luck, until GC moves the byte[] buffer
             var kdb = new DirectBuffer(BitConverter.GetBytes(key));
             const int count = 20;
             var r = new Random();
@@ -1254,12 +1255,35 @@ namespace Spreads.LMDB.Tests
                         Assert.IsTrue(c.TryFindDup(Lookup.EQ, ref key, ref prefix));
                         Assert.AreEqual(1, prefix);
 
+                        // c is now at dup 1
                         while(c.Delete(false))
                         {
-                            DirectBuffer buff = new DirectBuffer(BitConverter.GetBytes(prefix));
-                            if (c.TryGet(ref kdb, ref buff, CursorGetOption.GetCurrent))
+                            // One way to detect when all values are deleted is to call the method with CursorGetOption.Set option.
+                            // We need to check is kdb exists, and it is deleted when the last dupsorted value is deleted.
+                            //if (!c.TryGet(ref key, ref prefix, CursorGetOption.Set))
+                            //{
+                            //    break;
+                            //}
+
+                            // We cannot call GetCurrent after deleting the last dupsorted value,
+                            // because GetCurrent does not move the cursor. It is the only cursor
+                            // operation (other then multi ops which are not supported by this lib so far)
+                            // that does not move the cursors, but depends on previous moves.
+                            // http://www.lmdb.tech/doc/group__mdb.html#ga1206b2af8b95e7f6b0ef6b28708c9127
+                            // If you want to move cursor to both key and dubsorted value then use
+                            // CursorGetOption.GetBoth for exact match, or CursorGetOption.GetBothRange, which
+                            // "positions at key, nearest data.", but does not specify nearest to which direction.
+                            // It's better to call Spreads's extension TryFindDup with Lookup option,
+                            // it behaves much more intuitively and does all required work on C side, saving P/Invoke calls.
+                            if (c.TryGet(ref key, ref prefix, CursorGetOption.GetBothRange))
                             {
-                                Console.WriteLine(buff.ReadInt64(0));
+                                Console.WriteLine(prefix);
+                            }
+                            else
+                            {
+                                // need to exit the loop if there are no more values, delete works on current value
+                                // which is invalid after deleting the last one.
+                                break;
                             }
                         }
                     }
