@@ -1217,6 +1217,58 @@ namespace Spreads.LMDB.Tests
             env.Close();
         }
 
+
+        [Test]
+        public void CursorCanTryGetWhenAllRecordsDeleted()
+        {
+            var path = TestUtils.GetPath();
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.WriteMap);
+            env.Open();
+            var key = 42L;
+            var kdb = new DirectBuffer(BitConverter.GetBytes(key));
+            const int count = 20;
+            var r = new Random();
+            using (var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create | DbFlags.DuplicatesSort) {DupSortPrefix = 64}))
+            {
+                db.Truncate();
+                using (var tx = env.BeginTransaction())
+                {
+                    var buffer = new byte[64];
+                    for (int i = 0; i < count; i++)
+                    {
+                        long v = i+1;
+                        r.NextBytes(buffer);
+                        var bytes = BitConverter.GetBytes(v).Concat(buffer).ToArray();
+                        var valdb = new DirectBuffer(bytes);
+                        db.Put(tx, ref kdb, ref valdb, TransactionPutOptions.AppendDuplicateData);
+                    }
+
+                    tx.Commit();
+                }
+
+                using (var tx = env.BeginTransaction())
+                {
+                    using (var c = db.OpenCursor(tx))
+                    {
+                        long prefix = 1L;
+                        Assert.IsTrue(c.TryFindDup(Lookup.EQ, ref key, ref prefix));
+                        Assert.AreEqual(1, prefix);
+
+                        while(c.Delete(false))
+                        {
+                            DirectBuffer buff = new DirectBuffer(BitConverter.GetBytes(prefix));
+                            if (c.TryGet(ref kdb, ref buff, CursorGetOption.GetCurrent))
+                            {
+                                Console.WriteLine(buff.ReadInt64(0));
+                            }
+                        }
+                    }
+                }
+            }
+
+            env.Dispose();
+        }
+
         [Test]
         public unsafe void Issue24()
         {
