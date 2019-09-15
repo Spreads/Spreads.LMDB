@@ -44,7 +44,7 @@ but the span must be pinned as well if it is backed by `byte[]`.
  to read/write primitive and generic blittable struct values from any offset, 
 e.g. `directBufferInstance.Read<ulong>(8)` to read `ulong` from offset `8`. By default
 it checks bounds, and LMDB call via P/Invoke takes much longer so there is no reason to switch the 
-bounds checks off, but you can still do so e.g. if you read separate bytes of large values
+bounds checks off. But you can still do so e.g. if you read separate bytes of large values
  a lot (e.g. via indexer `directBufferInstance[offset]` that returns a single byte at `offset`).
 
 ## Generic key/values support
@@ -60,7 +60,7 @@ and its `TypeHelper<T>.Size` static property must be positive.
 
 ## IEnumerable support
 
-A database or duplicate values of a key in a single dupsorted database could be enumerated via `dataVaseInstance.AsEnumerable([several overloads])` methods that could return 
+A database or duplicate values of a key in a single dupsorted database could be enumerated via `dataBaseInstance.AsEnumerable([several overloads])` methods that could return 
 either `DirectBuffer`s or generic blittable structs.
 
 # Examples
@@ -72,9 +72,7 @@ Tests show how to use the code.
 This library is being deployed and tested in production and is went through many performance 
 and correctness stress tests as a part of a larger workload.
 
-The project has required native binaries and source in [`lib`](https://github.com/Spreads/Spreads.LMDB/tree/master/lib) folder. 
-Binaries are native shared libraries compressed with 
-`deflate` and embedded into the package dll as resources (this often simplifies deployment). 
+The project has required native binaries packed with NuGet. 
 The library works with original native binaries as well if not using two `TryFind` helper methods.
 
 The library does not support nested transactions yet - only because we do not use them currently. 

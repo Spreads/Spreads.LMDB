@@ -22,7 +22,7 @@ namespace Spreads.LMDB.Tests
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
 
-            var count = 1_0_000;
+            var count = 5_0_000;
             var rounds = 1;
             var extraReadRounds = 10;
             var path = "./data/benchmark";
@@ -34,7 +34,7 @@ namespace Spreads.LMDB.Tests
             var dirS = Path.Combine(path, "Spreads");
             Directory.CreateDirectory(dirS);
 
-            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.NoSync,
+            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.NoSync | LMDBEnvironmentFlags.NoLock,
                 disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
