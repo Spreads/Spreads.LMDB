@@ -63,7 +63,7 @@ namespace Spreads.LMDB
         /// Fire-and-forget option for write transaction will throw.
         /// .NET async cannot be used in transaction body. True by default. </param>
         /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them. Should be true for multiple (a lot of) processes accessing the same env.</param>
-        public static LMDBEnvironment Create(string directory = null,
+        public static LMDBEnvironment Create(string directory,
             LMDBEnvironmentFlags openFlags = LMDBEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
             bool disableAsync = true, bool disableReadTxnAutoreset = false)
@@ -76,7 +76,7 @@ namespace Spreads.LMDB
             // this is machine-local storage for each user.
             if (string.IsNullOrWhiteSpace(directory))
             {
-                directory = Config.DbEnvironment.DefaultLocation;
+                throw new ArgumentNullException(nameof(directory));
             }
             var env = _openEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode, disableAsync, disableReadTxnAutoreset));
             if (env._openFlags != openFlags || env._accessMode != accessMode)

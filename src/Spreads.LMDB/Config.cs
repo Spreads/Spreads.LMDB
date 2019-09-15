@@ -33,16 +33,10 @@ namespace Spreads.LMDB
 
             static DbEnvironment()
             {
-                DefaultLocation = System.IO.Path.Combine(Bootstrapper.Instance.DataFolder, "LMDB");
                 DefaultMapSize = LibDefaultMapSize;
                 DefaultMaxReaders = LibDefaultMaxReaders;
                 DefaultMaxDatabases = LibDefaultMaxDatabases;
             }
-
-            /// <summary>
-            /// Default location of environment
-            /// </summary>
-            public static string DefaultLocation { get; set; }
 
             /// <summary>
             /// Default map size for new environments
