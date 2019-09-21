@@ -87,17 +87,25 @@ namespace Spreads.LMDB
             return env;
         }
 
+        private void CreateDirectoryIfMissing()
+        {
+            var directory = _directory;
+            if((_openFlags & LMDBEnvironmentFlags.NoSubDir) != 0)
+            {
+                directory = System.IO.Path.GetDirectoryName(_directory);
+            }
+            if(!System.IO.Directory.Exists(directory))
+            {
+                System.IO.Directory.CreateDirectory(directory);
+            }
+        }
+
         private LMDBEnvironment(string directory,
             LMDBEnvironmentFlags openFlags = LMDBEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
             bool disableWriterThread = false,
             bool disableReadTxnAutoreset = false)
         {
-            if (!System.IO.Directory.Exists(directory))
-            {
-                System.IO.Directory.CreateDirectory(directory);
-            }
-
             NativeMethods.AssertExecute(NativeMethods.mdb_env_create(out var envHandle));
             _handle = envHandle;
             _accessMode = accessMode;
@@ -105,6 +113,16 @@ namespace Spreads.LMDB
 
             _directory = directory;
             _openFlags = openFlags;
+
+            try
+            {
+                CreateDirectoryIfMissing();
+            }
+            catch
+            {
+                NativeMethods.mdb_env_close(envHandle);
+                throw;
+            }
 
             MaxDatabases = Config.DbEnvironment.DefaultMaxDatabases;
 
@@ -182,10 +200,7 @@ namespace Spreads.LMDB
         /// </summary>
         public void Open()
         {
-            if (!System.IO.Directory.Exists(_directory))
-            {
-                System.IO.Directory.CreateDirectory(_directory);
-            }
+            CreateDirectoryIfMissing();
 
             if (!_isOpen)
             {
