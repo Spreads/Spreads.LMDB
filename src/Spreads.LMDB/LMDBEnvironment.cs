@@ -94,10 +94,7 @@ namespace Spreads.LMDB
             {
                 directory = System.IO.Path.GetDirectoryName(_directory);
             }
-            if(!System.IO.Directory.Exists(directory))
-            {
-                System.IO.Directory.CreateDirectory(directory);
-            }
+            System.IO.Directory.CreateDirectory(directory);
         }
 
         private LMDBEnvironment(string directory,
