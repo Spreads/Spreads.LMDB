@@ -17,8 +17,12 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="2019.0.412" />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.2" />
+    <PackageReference Include="Spreads.Core" Version="2020.0.*" Condition=" !Exists ( '..\..\..\Spreads\src\Spreads.Core\Spreads.Core.csproj' ) " />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
+  </ItemGroup>
+  
+  <ItemGroup Condition=" Exists ( '..\..\..\Spreads\src\Spreads.Core\Spreads.Core.csproj' ) ">
+    <ProjectReference Include="..\..\..\Spreads\src\Spreads.Core\Spreads.Core.csproj" />
   </ItemGroup>
 
 </Project>
