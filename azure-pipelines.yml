@@ -21,7 +21,7 @@ jobs:
   steps:
   - task: DotNetCoreInstaller@0
     inputs:
-      version: '3.0.100-preview4-010538'
+      version: '3.1.100'
 
   - script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -f netcoreapp3.0 -c Debug -v m
     displayName: 'Test Debug netcoreapp3.0'
@@ -36,7 +36,7 @@ jobs:
   steps:
   - task: DotNetCoreInstaller@0
     inputs:
-      version: '3.0.100-preview4-010538'
+      version: '3.1.100'
 
   - script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -f netcoreapp3.0 -c Debug -v m
     displayName: 'Test Debug netcoreapp3.0'
@@ -51,7 +51,7 @@ jobs:
   steps:
   - task: DotNetCoreInstaller@0
     inputs:
-      version: '3.0.100-preview4-010538'
+      version: '3.1.100'
 
   - script: dotnet test test/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -f netcoreapp3.0 -c Debug -v m
     displayName: 'Test Debug netcoreapp3.0'
