@@ -4,13 +4,13 @@
 
 using NUnit.Framework;
 using Spreads.Buffers;
-using Spreads.Serialization;
 using Spreads.Utils;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -68,7 +68,7 @@ namespace Spreads.LMDB.Tests
             env.Close();
         }
 
-        [Test, Ignore("")]
+        [Test, Explicit("")]
         public void CouldTouchSpace()
         {
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
@@ -93,7 +93,7 @@ namespace Spreads.LMDB.Tests
             env.Close();
         }
 
-        [Test, Ignore("")]
+        [Test, Explicit("")]
         public void CouldCreateManyEnvironment()
         {
             var path = TestUtils.GetPath();
@@ -108,11 +108,11 @@ namespace Spreads.LMDB.Tests
         }
 
         // TODO fix
-        [Test, Ignore("hangs")]
+        [Test, Explicit("hangs")]
         public async Task CouldWriteAsync()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path);
+            var env = LMDBEnvironment.Create(path, disableAsync:false);
             env.Open();
             var stat = env.GetStat();
 
@@ -177,8 +177,8 @@ namespace Spreads.LMDB.Tests
                         keyBytes[3] = (byte)i;
                         fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                         {
-                            var key = new DirectBuffer(keyBytes.Length, keyPtr);
-                            var value = new DirectBuffer(valueBytes.Length, valPtr);
+                            var key = new DirectBuffer(keyBytes.Length, (nint)keyPtr);
+                            var value = new DirectBuffer(valueBytes.Length, (nint)valPtr);
 
                             var stat1 = db.GetStat();
 
@@ -214,8 +214,8 @@ namespace Spreads.LMDB.Tests
                     keyBytes[3] = (byte)i;
                     fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                     {
-                        var key = new DirectBuffer(keyBytes.Length, keyPtr);
-                        var value = new DirectBuffer(valueBytes.Length, valPtr);
+                        var key = new DirectBuffer(keyBytes.Length, (nint)keyPtr);
+                        var value = new DirectBuffer(valueBytes.Length, (nint)valPtr);
 
                         // c.TryGet(CursorGetOption.SetKey, ref key, ref value);
                         db.TryGet(txn, ref key, out value);
@@ -259,7 +259,7 @@ namespace Spreads.LMDB.Tests
                 {
                     long sharedPid = 0;
                     var keyPtr = Unsafe.AsPointer(ref sharedPid);
-                    var key1 = new DirectBuffer(8, (byte*)keyPtr);
+                    var key1 = new DirectBuffer(8, (nint)keyPtr);
 
                     if (db.TryGet(txn, ref key1, out DirectBuffer value1))
                     {
@@ -267,8 +267,11 @@ namespace Spreads.LMDB.Tests
                     }
                     else
                     {
-                        var value = new DirectBuffer(env.PageSize - env.OverflowPageHeaderSize,
-                            (byte*)IntPtr.Zero);
+                        var value = new DirectBuffer(env.PageSize - env.OverflowPageHeaderSize, 1);
+                        // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
+                        // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
+                        Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (nuint)IntPtr.Size) = IntPtr.Zero;
+                        
                         db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                         value.Clear(0, value.Length);
                         SharedBuffer = value;
@@ -302,8 +305,8 @@ namespace Spreads.LMDB.Tests
                         keyBytes[3] = (byte)i;
                         fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                         {
-                            var key = new DirectBuffer(keyBytes.Length, keyPtr);
-                            var value = new DirectBuffer(valueBytes.Length, valPtr);
+                            var key = new DirectBuffer(keyBytes.Length, (nint)keyPtr);
+                            var value = new DirectBuffer(valueBytes.Length, (nint)valPtr);
 
                             var stat1 = db.GetStat();
 
@@ -339,8 +342,8 @@ namespace Spreads.LMDB.Tests
                     keyBytes[3] = (byte)i;
                     fixed (byte* keyPtr = &keyBytes[0], valPtr = &valueBytes[0])
                     {
-                        var key = new DirectBuffer(keyBytes.Length, keyPtr);
-                        var value = new DirectBuffer(valueBytes.Length, valPtr);
+                        var key = new DirectBuffer(keyBytes.Length, (nint)keyPtr);
+                        var value = new DirectBuffer(valueBytes.Length, (nint)valPtr);
 
                         // c.TryGet(CursorGetOption.SetKey, ref key, ref value);
                         db.TryGet(txn, ref key, out value);
@@ -423,7 +426,7 @@ namespace Spreads.LMDB.Tests
                     var keyUtf8Length = Encoding.UTF8.GetByteCount(keyString);
                     var keyBytes = stackalloc byte[keyUtf8Length];
                     Encoding.UTF8.GetBytes(keyPtr, keyString.Length, keyBytes, keyUtf8Length);
-                    var key = new DirectBuffer(keyUtf8Length, keyBytes);
+                    var key = new DirectBuffer(keyUtf8Length, (nint)keyBytes);
 
                     var value = new DirectBuffer(values);
                     DirectBuffer value2 = default;
@@ -487,7 +490,7 @@ namespace Spreads.LMDB.Tests
         public async Task CouldWriteAndReadProfileReadPath()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path);
+            var env = LMDBEnvironment.Create(path, disableAsync:false);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
@@ -554,14 +557,14 @@ namespace Spreads.LMDB.Tests
             var path = TestUtils.GetPath();
             var env = LMDBEnvironment.Create(path,
                 // for any other config we have SQLite :)
-                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
+                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync, disableAsync:false);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
 
             var values = new byte[] { 1, 2, 3, 4 };
 
-            var count = 1_000_000;
+            var count = 1_000;
 
             using (Benchmark.Run("Write sync transactions", count))
             {
@@ -615,7 +618,7 @@ namespace Spreads.LMDB.Tests
 
             var values = new byte[] { 1, 2, 3, 4 };
 
-            var count = 1_000_000;
+            var count = 1_000;
 
             // NB: Draining queue after benchmark ends, so fire and forget case only shows overhead of sending
             const bool fireAndForget = false;
@@ -752,7 +755,7 @@ namespace Spreads.LMDB.Tests
             env.Dispose();
         }
 
-        [Test, Ignore("Must support value fixed-size tuple, Spreads.Core serializes them as fixed size.")]
+        [Test, Explicit("Must support value fixed-size tuple, Spreads.Core serializes them as fixed size.")]
         public void CouldWriteTupleDups()
         {
             var path = TestUtils.GetPath();
@@ -899,7 +902,7 @@ namespace Spreads.LMDB.Tests
 
             var key = 0L;
 
-            var count = 1_000_000;
+            var count = 1_000;
 
             var db = env.OpenDatabase("dupfixed_db",
                 new DatabaseConfig(DbFlags.Create | DbFlags.IntegerDuplicates));
@@ -949,7 +952,7 @@ namespace Spreads.LMDB.Tests
             env.Close();
         }
 
-        [BinarySerialization(16)]
+        [StructLayout(LayoutKind.Sequential, Pack = 8, Size = 16)]
         public struct InPlaceUpdateable
         {
             public long Key;
@@ -965,7 +968,7 @@ namespace Spreads.LMDB.Tests
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
 
-            var items = 1_00_000;
+            var items = 1_000;
             var count = items * 100;
             var counts = new long[count];
             var changedPointers = new IntPtr[count];
@@ -1318,8 +1321,8 @@ namespace Spreads.LMDB.Tests
             {
                 using (var tx = env.BeginTransaction())
                 {
-                    var keydb = new DirectBuffer(keyLen, keyBytes);
-                    var valuedb = new DirectBuffer(valLen, valBytes);
+                    var keydb = new DirectBuffer(keyLen, (nint)keyBytes);
+                    var valuedb = new DirectBuffer(valLen, (nint)valBytes);
                     db.Put(tx, ref keydb, ref valuedb, TransactionPutOptions.NoDuplicateData);
 
                     tx.Commit();
@@ -1327,7 +1330,7 @@ namespace Spreads.LMDB.Tests
 
                 using (var tx = env.BeginReadOnlyTransaction())
                 {
-                    var keydb = new DirectBuffer(keyLen, keyBytes);
+                    var keydb = new DirectBuffer(keyLen, (nint)keyBytes);
                     DirectBuffer valuedb = default;
                     Assert.IsTrue(db.TryGet(tx, ref keydb, out valuedb));
                     Assert.AreEqual(value, Encoding.UTF8.GetString(valuedb.Span.ToArray()));
@@ -1336,7 +1339,7 @@ namespace Spreads.LMDB.Tests
                 using (var tx = env.BeginReadOnlyTransaction())
                 using (var c = db.OpenReadOnlyCursor(tx))
                 {
-                    var keydb = new DirectBuffer(keyLen, keyBytes);
+                    var keydb = new DirectBuffer(keyLen, (nint)keyBytes);
                     DirectBuffer valuedb = default;
                     Assert.IsTrue(c.TryFind(Spreads.Lookup.EQ, ref keydb, out valuedb));
                 }

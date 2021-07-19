@@ -9,11 +9,11 @@
 
   <PropertyGroup>
     <!-- Change YY and Q only for important releases. -->
-    <YYVersion>2020</YYVersion>
+    <YYVersion>2021</YYVersion>
     <QVersion>0</QVersion>
 
     <!-- Overrides -->
-    <MMDDVersion>114</MMDDVersion>
+    <MMDDVersion>719</MMDDVersion>
     <PackageHHMMSSSuffix></PackageHHMMSSSuffix>
 
   </PropertyGroup>

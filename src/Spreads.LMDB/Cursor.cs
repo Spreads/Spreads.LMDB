@@ -5,13 +5,13 @@
 using Spreads.Buffers;
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
-using Spreads.Serialization;
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
 using System.Threading;
 using static System.Runtime.CompilerServices.Unsafe;
+using static Spreads.LMDB.Util;
 
 namespace Spreads.LMDB
 {
@@ -275,7 +275,7 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static CursorImpl Create(Database db, TransactionImpl txn, bool readOnly)
         {
-            var c = CursorPool.Allocate();
+            var c = CursorPool.Rent();
 
             c._database = db;
             c._transaction = txn;
@@ -336,7 +336,7 @@ namespace Spreads.LMDB
             _transaction = null;
             if (disposing)
             {
-                CursorPool.Free(this);
+                CursorPool.Return(this);
             }
         }
 
@@ -385,9 +385,11 @@ namespace Spreads.LMDB
         public unsafe bool TryFind<TKey, TValue>(Lookup direction, ref TKey key, out TValue value)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            TypeHelper<TValue>.EnsureFixedSize();
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
             var res = TryFind(direction, ref key1, out DirectBuffer value1);
             if (res)
             {
@@ -443,11 +445,14 @@ namespace Spreads.LMDB
         public unsafe bool TryFindDup<TKey, TValue>(Lookup direction, ref TKey key, ref TValue value)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
 
             var valuePtr = AsPointer(ref value);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
 
             var res = TryFindDup(direction, ref key1, ref value1);
             if (res)
@@ -506,10 +511,13 @@ namespace Spreads.LMDB
         public unsafe bool TryGet<TKey, TValue>(ref TKey key, ref TValue value, CursorGetOption operation)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
             if (TryGet(ref key1, ref value1, operation))
             {
                 key = ReadUnaligned<TKey>(key1.Data);
@@ -549,10 +557,13 @@ namespace Spreads.LMDB
         public unsafe bool TryPut<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
             if (TryPut(ref key1, ref value1, options))
             {
                 key = ReadUnaligned<TKey>(key1.Data);
@@ -574,10 +585,13 @@ namespace Spreads.LMDB
         public unsafe void Put<TKey, TValue>(ref TKey key, ref TValue value, CursorPutOptions options)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
             Put(ref key1, ref value1, options);
             key = ReadUnaligned<TKey>(key1.Data);
             value = ReadUnaligned<TValue>(value1.Data);

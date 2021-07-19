@@ -5,7 +5,6 @@
 using Spreads.Buffers;
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
-using Spreads.Serialization;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -200,7 +199,7 @@ namespace Spreads.LMDB
             _isOpen = true;
             var maxPooledReaders = Math.Max(16, Math.Min(Environment.ProcessorCount * 2, MaxReaders - Environment.ProcessorCount * 2));
             var poolSize = _disableReadTxnAutoreset ? 1 : maxPooledReaders;
-            ReadTxnPool = new LockedObjectPool<TransactionImpl>(poolSize, () => { return null; }, false);
+            ReadTxnPool = new LockedObjectPool<TransactionImpl>(() => { return null; }, poolSize, false);
         }
 
         /// <summary>
@@ -256,13 +255,11 @@ namespace Spreads.LMDB
                 }
             }
         }
-
-        /// <summary>
-        /// Queue a write action and spin until it is completed unless fireAndForget is true.
-        /// If fireAndForget is true then return immediately.
-        /// </summary>
+        
+        [Obsolete]
         internal Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool fireAndForget = false)
         {
+            EnsureAsyncWriteEnabled();
             TaskCompletionSource<object> tcs;
             if (!_writeQueue.IsAddingCompleted)
             {
@@ -280,16 +277,14 @@ namespace Spreads.LMDB
                 throw new OperationCanceledException();
             }
 
-            if (fireAndForget)
-            {
-                return Task.FromResult<object>(null);
-            }
+            return fireAndForget ? Task.FromResult<object>(null) : tcs.Task;
 
-            return tcs.Task;
         }
 
+        [Obsolete]
         public Task WriteAsync(Action<Transaction> writeAction, bool fireAndForget = false)
         {
+            EnsureAsyncWriteEnabled();
             TaskCompletionSource<object> tcs;
             if (!_writeQueue.IsAddingCompleted)
             {
@@ -307,9 +302,8 @@ namespace Spreads.LMDB
                 throw new OperationCanceledException();
             }
 
-            if (fireAndForget) { return Task.CompletedTask; }
+            return fireAndForget ? Task.CompletedTask : tcs.Task;
 
-            return tcs.Task;
         }
 
         /// <summary>
@@ -575,17 +569,21 @@ namespace Spreads.LMDB
             {
                 throw new InvalidOperationException("OverflowPageHeaderSize requires DbEnvironmentFlags.WriteMap flag");
             }
-#pragma warning disable 618
             using (var txn = BeginTransaction())
             {
-#pragma warning restore 618
+                GCHandle handle;
                 try
                 {
                     var db = new Database("temp", txn._impl, new DatabaseConfig(DbFlags.Create));
                     var bufferRef = 0L;
                     var keyPtr = Unsafe.AsPointer(ref bufferRef);
-                    var key1 = new DirectBuffer(8, (byte*)keyPtr);
-                    var value = new DirectBuffer(PageSize * 10, (byte*)IntPtr.Zero);
+                    var key1 = new DirectBuffer(8, (nint)keyPtr);
+                    
+                    var value = new DirectBuffer(PageSize * 10, 1);
+                    // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
+                    // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
+                    Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (IntPtr)IntPtr.Size) = IntPtr.Zero;
+                    
                     db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                     db.Dispose();
                     return checked((int)(((IntPtr)value.Data).ToInt64() % PageSize));
@@ -690,8 +688,13 @@ namespace Spreads.LMDB
             {
                 var key = 0;
                 var keyPtr = Unsafe.AsPointer(ref key);
-                var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (byte*)keyPtr);
-                DirectBuffer value = new DirectBuffer(size, (byte*)IntPtr.Zero);
+                var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (nint)keyPtr);
+                
+                DirectBuffer value = new DirectBuffer(size, (nint)1);
+                // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
+                // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
+                Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (IntPtr)IntPtr.Size) = IntPtr.Zero;
+                
                 db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                 Unsafe.InitBlockUnaligned(value.Data, 0, (uint)value.Length);
                 txn.Commit();
@@ -749,6 +752,17 @@ namespace Spreads.LMDB
         internal void EnsureOpen()
         {
             if (!_isOpen) { ThrowIfNotOpen(); }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureAsyncWriteEnabled()
+        {
+            if (_writeQueue == null) Throw();
+
+            void Throw()
+            {
+                throw new InvalidOperationException("Async writes are disabled. See LMDBEnvironment ctor parameters.");
+            }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

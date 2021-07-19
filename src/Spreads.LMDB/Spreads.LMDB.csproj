@@ -2,11 +2,12 @@
   <Import Project="..\..\build\common.props" />
   <PropertyGroup>
     <Description>LMDB wrapper with some additional native helper methods useful for Spreads.</Description>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net6.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <AssemblyName>Spreads.LMDB</AssemblyName>  
     <PackageId>Spreads.LMDB</PackageId>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,12 +18,15 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="2020.0.*" Condition=" !Exists ( '..\..\..\Spreads\src\Spreads.Core\Spreads.Core.csproj' ) " />
-    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.3" />
+    <PackageReference Include="Spreads.Core" Version="2021.0.719" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
   </ItemGroup>
   
-  <ItemGroup Condition=" Exists ( '..\..\..\Spreads\src\Spreads.Core\Spreads.Core.csproj' ) ">
-    <ProjectReference Include="..\..\..\Spreads\src\Spreads.Core\Spreads.Core.csproj" />
-  </ItemGroup>
-
+  <PropertyGroup Condition="'$(TargetFramework)'=='net6.0' OR '$(TargetFramework)'=='net5.0' OR '$(TargetFramework)'=='netcoreapp3.1'">
+    <DefineConstants>$(DefineConstants);NETSTANDARD;HAS_ISREF;HAS_AGGR_OPT;HAS_INTRINSICS;BUILTIN_SPAN;BUILTIN_NULLABLE;HAS_TPWORKITEM;HAS_RANGE;HAS_BITOPERATIONS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)'=='net6.0' OR '$(TargetFramework)'=='net5.0'">
+    <DefineConstants>$(DefineConstants);HAS_SUPPRESS_GC_TRANSITION</DefineConstants>
+  </PropertyGroup>
+  
 </Project>

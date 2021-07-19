@@ -159,7 +159,7 @@ namespace Spreads.LMDB
             {
                 if ((tx = lmdbEnvironment.ReadTxnPool.Rent()) == null)
                 {
-                    tx = TxPool.Allocate();
+                    tx = TxPool.Rent();
                     tx._isReadOnly = true;
                     if (tx._state != TransactionState.Disposed)
                     {
@@ -187,7 +187,7 @@ namespace Spreads.LMDB
             }
             else
             {
-                tx = TxPool.Allocate();
+                tx = TxPool.Rent();
                 tx._isReadOnly = false;
                 NativeMethods.AssertExecute(NativeMethods.mdb_txn_begin(
                     lmdbEnvironment._handle.Handle,
@@ -290,7 +290,7 @@ namespace Spreads.LMDB
 
             if (disposing)
             {
-                TxPool.Free(this);
+                TxPool.Return(this);
             }
         }
 

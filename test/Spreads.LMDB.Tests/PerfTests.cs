@@ -4,7 +4,6 @@
 
 using NUnit.Framework;
 using Spreads.Buffers;
-using Spreads.Serialization;
 using Spreads.Utils;
 using System;
 using System.IO;
@@ -22,7 +21,7 @@ namespace Spreads.LMDB.Tests
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
 
-            var count = 5_0_000;
+            var count = 1_00_000;
             var rounds = 1;
             var extraReadRounds = 10;
             var path = "./data/benchmark";
@@ -131,7 +130,7 @@ namespace Spreads.LMDB.Tests
 #pragma warning disable 618
             Settings.DoAdditionalCorrectnessChecks = false;
 #pragma warning restore 618
-            var count = TestUtils.GetBenchCount(TestUtils.InDocker ? 100_000 : 1000_000, 100_000);
+            var count = TestUtils.GetBenchCount(TestUtils.InDocker ? 100_000 : 1_000_000, 100_000);
             var rounds = 10;
             var extraRounds = 10;
 
@@ -160,8 +159,12 @@ namespace Spreads.LMDB.Tests
                 {
                     var key = 0L;
                     var keyPtr = Unsafe.AsPointer(ref key);
-                    var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (byte*)keyPtr);
-                    DirectBuffer value = new DirectBuffer(32 * 1024 * 1024, (byte*)IntPtr.Zero);
+                    var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (nint)keyPtr);
+                    DirectBuffer value = new DirectBuffer(32 * 1024 * 1024, (nint)1);
+                    // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
+                    // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
+                    Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (nuint)IntPtr.Size) = IntPtr.Zero;
+                    
                     dbS.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                     txn.Commit();
                 }
@@ -170,7 +173,7 @@ namespace Spreads.LMDB.Tests
                 {
                     var key = 0L;
                     var keyPtr = Unsafe.AsPointer(ref key);
-                    var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (byte*)keyPtr);
+                    var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (nint)keyPtr);
                     dbS.Delete(txn, ref key1);
                     txn.Commit();
                 }

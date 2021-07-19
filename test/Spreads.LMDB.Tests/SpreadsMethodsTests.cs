@@ -3,7 +3,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 using NUnit.Framework;
-using Spreads.Serialization;
 using Spreads.Utils;
 using System;
 using System.IO;
@@ -724,7 +723,6 @@ namespace Spreads.LMDB.Tests
         }
 
         [StructLayout(LayoutKind.Sequential, Pack = 8, Size = 24)]
-        [BinarySerialization(24)]
         public struct DupValueWithWideKey
         {
             public ulong First;
@@ -1168,7 +1166,6 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldFindDupDSIssue()
         {
-            Settings.UseStructLayoutSizeAsBlittableSize = true;
             var env = LMDBEnvironment.Create("./Data/CouldFindDup",
                 LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();

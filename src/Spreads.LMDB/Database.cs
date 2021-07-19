@@ -5,7 +5,6 @@
 using Spreads.Buffers;
 using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
-using Spreads.Serialization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -13,6 +12,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using static Spreads.LMDB.Util;
 using static System.Runtime.CompilerServices.Unsafe;
 
 namespace Spreads.LMDB
@@ -97,7 +97,7 @@ namespace Spreads.LMDB
 
             var poolSize = System.Environment.ProcessorCount * 2;
 
-            ReadCursorPool = new LockedObjectPool<CursorImpl>(poolSize, () => null, false);
+            ReadCursorPool = new LockedObjectPool<CursorImpl>(() => null, poolSize, false);
         }
 
         internal bool IsReleased => _handle == default(uint);
@@ -260,10 +260,14 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
             NativeMethods.AssertExecute(NativeMethods.mdb_put(txn._impl.Handle, _handle,
                 ref key1, ref value1,
                 flags));
@@ -283,10 +287,13 @@ namespace Spreads.LMDB
             TransactionPutOptions flags = TransactionPutOptions.None)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
             NativeMethods.AssertExecute(NativeMethods.sdb_put(Environment._handle.Handle, _handle,
                 ref key1, ref value1,
                 flags));
@@ -317,8 +324,10 @@ namespace Spreads.LMDB
         public void Delete<T>(Transaction txn, T key)
             where T : struct
         {
+            EnsureNoRefs<T>();
+            
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(SizeOf<T>(), (nint)keyPtr);
             Delete(txn, ref key1);
         }
 
@@ -342,8 +351,10 @@ namespace Spreads.LMDB
         public void Delete<T>(Transaction txn, DirectBuffer key, T value)
             where T : struct
         {
+            EnsureNoRefs<T>();
+            
             var valuePtr = AsPointer(ref value);
-            var value1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)valuePtr);
+            var value1 = new DirectBuffer(SizeOf<T>(), (nint)valuePtr);
             Delete(txn, key, value1);
         }
 
@@ -351,8 +362,10 @@ namespace Spreads.LMDB
         public void Delete<T>(Transaction txn, T key, DirectBuffer value)
             where T : struct
         {
+            EnsureNoRefs<T>();
+            
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(SizeOf<T>(), (nint)keyPtr);
             Delete(txn, key1, value);
         }
 
@@ -360,10 +373,13 @@ namespace Spreads.LMDB
         public void Delete<TKey, TValue>(Transaction txn, TKey key, TValue value)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
             var valuePtr = AsPointer(ref value);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
             Delete(txn, key1, value1);
         }
 
@@ -381,8 +397,8 @@ namespace Spreads.LMDB
         public bool TryGet<T>(ReadOnlyTransaction txn, ref DirectBuffer key, out T value)
             where T : struct
         {
-            TypeHelper<T>.EnsureFixedSize();
-
+            EnsureNoRefs<T>();
+            
             if (TryGet(txn, ref key, out var valueDb))
             {
                 value = ReadUnaligned<T>(valueDb.Data);
@@ -397,8 +413,10 @@ namespace Spreads.LMDB
         public bool TryGet<T>(ReadOnlyTransaction txn, ref T key, out DirectBuffer value)
             where T : struct
         {
+            EnsureNoRefs<T>();
+            
             var keyPtr = AsPointer(ref key);
-            var keyDb = new DirectBuffer(TypeHelper<T>.EnsureFixedSize(), (byte*)keyPtr);
+            var keyDb = new DirectBuffer(SizeOf<T>(), (nint)keyPtr);
 
             return TryGet(txn, ref keyDb, out value);
         }
@@ -407,8 +425,11 @@ namespace Spreads.LMDB
         public bool TryGet<TKey, TValue>(ReadOnlyTransaction txn, ref TKey key, out TValue value)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
-            var keyDb = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var keyDb = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
             return TryGet(txn, ref keyDb, out value);
         }
 
@@ -420,11 +441,14 @@ namespace Spreads.LMDB
         public bool TryFindDup<TKey, TValue>(ReadOnlyTransaction txn, Lookup direction, ref TKey key, ref TValue value)
             where TKey : struct where TValue : struct
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
-            var key1 = new DirectBuffer(TypeHelper<TKey>.EnsureFixedSize(), (byte*)keyPtr);
+            var key1 = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);
 
             var valuePtr = AsPointer(ref value);
-            var value1 = new DirectBuffer(TypeHelper<TValue>.EnsureFixedSize(), (byte*)valuePtr);
+            var value1 = new DirectBuffer(SizeOf<TValue>(), (nint)valuePtr);
 
             var res = TryFindDup(txn, direction, ref key1, ref value1);
             if (res)
@@ -496,8 +520,11 @@ namespace Spreads.LMDB
         /// </summary>
         public IEnumerable<KeyValuePair<TKey, TValue>> AsEnumerable<TKey, TValue>(ReadOnlyTransaction txn)
         {
-            var keySize = TypeHelper<TKey>.EnsureFixedSize();
-            var valueSize = TypeHelper<TValue>.EnsureFixedSize();
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
+            var keySize = SizeOf<TKey>();
+            var valueSize = SizeOf<TValue>();
 
             return AsEnumerable(txn).Select(kvp =>
             {
@@ -516,8 +543,11 @@ namespace Spreads.LMDB
 
         public IEnumerable<KeyValuePair<TKey, TValue>> AsEnumerable<TKey, TValue>(Transaction txn)
         {
-            var keySize = TypeHelper<TKey>.EnsureFixedSize();
-            var valueSize = TypeHelper<TValue>.EnsureFixedSize();
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
+            var keySize = SizeOf<TKey>();
+            var valueSize = SizeOf<TValue>();
 
             return AsEnumerable(txn).Select(kvp =>
             {
@@ -543,7 +573,7 @@ namespace Spreads.LMDB
 
             try
             {
-                var key1 = new DirectBuffer(key.Span);
+                var key1 = new DirectBuffer(key.GetSpan());
                 DirectBuffer value = default;
                 using (var c = OpenReadOnlyCursor(txn))
                 {
@@ -576,7 +606,7 @@ namespace Spreads.LMDB
             }
 
             var fixedMemory = BufferPool.Retain(key.Length, true);
-            key.Span.CopyTo(fixedMemory.Span);
+            key.Span.CopyTo(fixedMemory.GetSpan());
             return AsEnumerable(txn, fixedMemory);
         }
 
@@ -585,11 +615,13 @@ namespace Spreads.LMDB
         /// </summary>
         public IEnumerable<DirectBuffer> AsEnumerable<T>(ReadOnlyTransaction txn, T key)
         {
+            EnsureNoRefs<T>();
+            
             var keyPtr = AsPointer(ref key);
-            var keyLength = TypeHelper<T>.EnsureFixedSize();
-            var key1 = new DirectBuffer(keyLength, (byte*)keyPtr);
+            var keyLength = SizeOf<T>();
+            var key1 = new DirectBuffer(keyLength, (nint)keyPtr);
             var fixedMemory = BufferPool.Retain(keyLength, true);
-            key1.Span.CopyTo(fixedMemory.Span);
+            key1.Span.CopyTo(fixedMemory.GetSpan());
             return AsEnumerable(txn, fixedMemory);
         }
 
@@ -598,15 +630,18 @@ namespace Spreads.LMDB
         /// </summary>
         public IEnumerable<TValue> AsEnumerable<TKey, TValue>(ReadOnlyTransaction txn, TKey key)
         {
+            EnsureNoRefs<TKey>();
+            EnsureNoRefs<TValue>();
+            
             var keyPtr = AsPointer(ref key);
-            var keyLength = TypeHelper<TKey>.EnsureFixedSize();
-            var key1 = new DirectBuffer(keyLength, (byte*)keyPtr);
+            var keyLength = SizeOf<TKey>();
+            var key1 = new DirectBuffer(keyLength, (nint)keyPtr);
             var fixedMemory = BufferPool.Retain(keyLength, true);
-            key1.Span.CopyTo(fixedMemory.Span);
+            key1.Span.CopyTo(fixedMemory.GetSpan());
 
             return AsEnumerable(txn, fixedMemory).Select(buf =>
               {
-                  var valueSize = TypeHelper<TValue>.EnsureFixedSize();
+                  var valueSize = SizeOf<TValue>();
                   if (buf.Length != valueSize)
                   {
                       throw new InvalidOperationException("Buffer length does not equals to value size");
