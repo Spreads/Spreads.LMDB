@@ -89,9 +89,15 @@ namespace Spreads.LMDB.Interop
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void mdb_txn_abort(IntPtr txn);
 
+#if HAS_SUPPRESS_GC_TRANSITION
+        [SuppressGCTransition]
+#endif
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void mdb_txn_reset(IntPtr txn);
 
+#if HAS_SUPPRESS_GC_TRANSITION
+        [SuppressGCTransition]
+#endif
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_txn_renew(IntPtr txn);
 
@@ -146,12 +152,21 @@ namespace Spreads.LMDB.Interop
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_del(IntPtr txn, uint dbi, in DirectBuffer key, IntPtr data);
 
+#if HAS_SUPPRESS_GC_TRANSITION
+        [SuppressGCTransition]
+#endif
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_open(IntPtr txn, uint dbi, out IntPtr cursor);
 
+#if HAS_SUPPRESS_GC_TRANSITION
+        [SuppressGCTransition]
+#endif
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern void mdb_cursor_close(IntPtr cursor);
 
+#if HAS_SUPPRESS_GC_TRANSITION
+        [SuppressGCTransition]
+#endif
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_cursor_renew(IntPtr txn, IntPtr cursor);
 
@@ -176,7 +191,7 @@ namespace Spreads.LMDB.Interop
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int mdb_set_dupsort(IntPtr txn, uint dbi, [MarshalAs(UnmanagedType.FunctionPtr)]CompareFunction cmp);
 
-        // Spreads extensoins to LMDB
+        // Spreads extensions to LMDB
 
         [DllImport(DbLibraryName, CallingConvention = CallingConvention.Cdecl)]
         public static extern int sdb_cursor_get_lt(IntPtr cursor, ref DirectBuffer key, out DirectBuffer data);
