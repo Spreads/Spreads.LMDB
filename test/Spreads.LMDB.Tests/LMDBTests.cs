@@ -267,12 +267,7 @@ namespace Spreads.LMDB.Tests
                     }
                     else
                     {
-                        var value = new DirectBuffer(env.PageSize - env.OverflowPageHeaderSize, 1);
-                        // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
-                        // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
-                        Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (nuint)IntPtr.Size) = IntPtr.Zero;
-                        
-                        db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
+                        var value = DirectBuffer.LengthOnly((uint)(env.PageSize - env.OverflowPageHeaderSize)); db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                         value.Clear(0, value.Length);
                         SharedBuffer = value;
                     }

@@ -5,6 +5,8 @@
     <TargetFramework>net6.0</TargetFramework>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <LangVersion>latest</LangVersion>
+    <TieredCompilation>False</TieredCompilation>
+    <TieredCompilationQuickJitForLoops>False</TieredCompilationQuickJitForLoops>
   </PropertyGroup>
 
   <PropertyGroup>

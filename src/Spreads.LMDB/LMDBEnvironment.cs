@@ -578,12 +578,7 @@ namespace Spreads.LMDB
                     var bufferRef = 0L;
                     var keyPtr = Unsafe.AsPointer(ref bufferRef);
                     var key1 = new DirectBuffer(8, (nint)keyPtr);
-                    
-                    var value = new DirectBuffer(PageSize * 10, 1);
-                    // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
-                    // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
-                    Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (IntPtr)IntPtr.Size) = IntPtr.Zero;
-                    
+                    var value = DirectBuffer.LengthOnly((uint)PageSize * 10);
                     db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                     db.Dispose();
                     return checked((int)(((IntPtr)value.Data).ToInt64() % PageSize));
@@ -689,12 +684,7 @@ namespace Spreads.LMDB
                 var key = 0;
                 var keyPtr = Unsafe.AsPointer(ref key);
                 var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (nint)keyPtr);
-                
-                DirectBuffer value = new DirectBuffer(size, (nint)1);
-                // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
-                // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
-                Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (IntPtr)IntPtr.Size) = IntPtr.Zero;
-                
+                DirectBuffer value = DirectBuffer.LengthOnly((uint)size);
                 db.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                 Unsafe.InitBlockUnaligned(value.Data, 0, (uint)value.Length);
                 txn.Commit();

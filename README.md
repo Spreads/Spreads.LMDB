@@ -43,20 +43,14 @@ but the span must be pinned as well if it is backed by `byte[]`.
 [`DirectBuffer`](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Buffers/DirectBuffer.cs) has many methods
  to read/write primitive and generic blittable struct values from any offset, 
 e.g. `directBufferInstance.Read<ulong>(8)` to read `ulong` from offset `8`. By default
-it checks bounds, and LMDB call via P/Invoke takes much longer so there is no reason to switch the 
+it checks bounds, and an LMDB call via P/Invoke takes much longer so there is no reason to switch the 
 bounds checks off. But you can still do so e.g. if you read separate bytes of large values
  a lot (e.g. via indexer `directBufferInstance[offset]` that returns a single byte at `offset`).
 
 ## Generic key/values support
 
-Any fixed-sized `unmanaged` structs could be used directly as keys/values. Until `unmanaged`
-constraint and blittable helpers (at least `IsBlittable`) are widly available we use
-opt-in to treat a *custom user-defined* struct as blittable. It must have defined Spreads' 
-[`BinarySerializationAttribute`](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Serialization/BinarySerializationAttribute.cs)
-with `BlittableSize` parameter for non-generic types or `PreferBlittable` set to `true`
-for generic types that could be blittable depending on a concrete type. The logic to decide
-if a type is fixed-size is in [TypeHelper<T>](https://github.com/Spreads/Spreads/blob/master/src/Spreads.Core/Serialization/TypeHelper.cs)
-and its `TypeHelper<T>.Size` static property must be positive.
+Any C# struct that has no references could be used directly as a key or a value. See [IROCR docs](https://docs.microsoft.com/en-us/dotnet/api/system.runtime.compilerservices.runtimehelpers.isreferenceorcontainsreferences).
+Be aware of auto layout, padding and related issues.
 
 ## IEnumerable support
 
@@ -72,12 +66,11 @@ Tests show how to use the code.
 This library is being deployed and tested in production and is went through many performance 
 and correctness stress tests as a part of a larger workload.
 
-The project has required native binaries packed with NuGet. 
-The library works with original native binaries as well if not using two `TryFind` helper methods.
+The project has the required native binaries in its NuGet package. 
+The library works with the original native LMDB binaries as well if not using two `TryFind` helper methods.
 
 The library does not support nested transactions yet - only because we do not use them currently. 
 They will be added as soon as we find a real-world compelling case for them. 
-
 
 # Contributing
 
@@ -86,5 +79,5 @@ Issues & PRs are welcome!
 # Copyright
 
 MPL 2.0
-(c) Victor Baybekov, 2018
+(c) Victor Baybekov, 2018-2021
 

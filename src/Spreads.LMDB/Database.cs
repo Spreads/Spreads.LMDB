@@ -426,7 +426,7 @@ namespace Spreads.LMDB
             where TKey : struct where TValue : struct
         {
             EnsureNoRefs<TKey>();
-            EnsureNoRefs<TValue>();
+            // EnsureNoRefs<TValue>(); it's called in TryGet below
             
             var keyPtr = AsPointer(ref key);
             var keyDb = new DirectBuffer(SizeOf<TKey>(), (nint)keyPtr);

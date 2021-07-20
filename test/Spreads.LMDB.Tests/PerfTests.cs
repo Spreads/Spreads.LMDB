@@ -160,11 +160,7 @@ namespace Spreads.LMDB.Tests
                     var key = 0L;
                     var keyPtr = Unsafe.AsPointer(ref key);
                     var key1 = new DirectBuffer(TypeHelper<int>.FixedSize, (nint)keyPtr);
-                    DirectBuffer value = new DirectBuffer(32 * 1024 * 1024, (nint)1);
-                    // Note: DirectBuffer used to have an unsafe ctor that accepts null for data,
-                    // here we emulate this behavior (the layout is fixed and won't change because it matches MDB_VAL):
-                    Unsafe.AddByteOffset(ref Unsafe.As<DirectBuffer, nint>(ref Unsafe.AsRef(in value)), (nuint)IntPtr.Size) = IntPtr.Zero;
-                    
+                    var value = DirectBuffer.LengthOnly(32 * 1024 * 1024);
                     dbS.Put(txn, ref key1, ref value, TransactionPutOptions.ReserveSpace);
                     txn.Commit();
                 }
