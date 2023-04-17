@@ -74,5 +74,5 @@ Issues & PRs are welcome!
 # Copyright
 
 MPL 2.0
-(c) Victor Baybekov, 2018-2021
+(c) Victor Baybekov, 2018-2023
 
