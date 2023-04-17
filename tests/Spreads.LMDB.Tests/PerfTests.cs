@@ -8,6 +8,7 @@ using Spreads.Utils;
 using System;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Spreads.LMDB.Tests
 {
@@ -140,12 +141,10 @@ namespace Spreads.LMDB.Tests
                 Directory.Delete(path, true);
             }
 
-            var dirS = Path.Combine(path, "Spreads");
-            var dirK = Path.Combine(path, "KdSoft");
-            Directory.CreateDirectory(dirS);
-            Directory.CreateDirectory(dirK);
+            var dir = Path.Combine(path, "Spreads");
+            Directory.CreateDirectory(dir);
 
-            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.MapAsync, disableAsync: true);
+            var envS = LMDBEnvironment.Create(dir, LMDBEnvironmentFlags.MapAsync, disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
@@ -238,12 +237,9 @@ namespace Spreads.LMDB.Tests
                 Directory.Delete(path, true);
             }
 
-            var dirS = Path.Combine(path, "Spreads");
-            var dirK = Path.Combine(path, "KdSoft");
-            Directory.CreateDirectory(dirS);
-            Directory.CreateDirectory(dirK);
+            Directory.CreateDirectory(Path.Combine(path, "Spreads"));
 
-            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoMetaSync,
+            var envS = LMDBEnvironment.Create(Path.Combine(path, "Spreads"), LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.None,
                 disableAsync: true);
             envS.MaxDatabases = 10;
             envS.MapSize = 16 * 1024 * 1024;
@@ -283,5 +279,96 @@ namespace Spreads.LMDB.Tests
             envS.Close();
             Benchmark.Dump("Writes in single OPS");
         }
+        
+        
+        [Test, Explicit("long running")]
+        public unsafe void LongWriteToOverflowPages()
+        {
+            var initCount = 100_000;
+            var count = 150_000;
+
+            var path = "./data/benchmark";
+            if (Directory.Exists(path))
+                Directory.Delete(path, true);
+
+            var dir = Path.Combine(path, "Spreads");
+            Directory.CreateDirectory(dir);
+
+            var env = LMDBEnvironment.Create(dir, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync | LMDBEnvironmentFlags.NoMetaSync, disableAsync: true);
+            env.MaxDatabases = 1;
+            env.MapSize = 16L * 1024 * 1024 * 1024;
+            env.Open();
+            var db = env.OpenDatabase("LongWriteToOverflowPages", new DatabaseConfig(DbFlags.Create
+                                                                                       | DbFlags.IntegerKey));
+
+
+            using (Benchmark.Run("Initial write", count, false))
+            {
+                using (var tx = env.BeginTransaction())
+                {
+                    for (int i = 0; i < initCount; i++)
+                    {
+                        var key0 = i;
+                        var keyPtr = Unsafe.AsPointer(ref key0);
+                        var key = new DirectBuffer(TypeHelper<int>.FixedSize, (nint)keyPtr);
+                        var value = DirectBuffer.LengthOnly(4080);
+                        db.Put(tx, ref key, ref value, TransactionPutOptions.AppendData | TransactionPutOptions.ReserveSpace);
+                        value.WriteInt64(0, (long)i);
+                    }
+
+                    tx.Commit();
+                }
+            }
+
+
+            for (int i = initCount; i < count; i++)
+            {
+                using (Benchmark.Run("Update existing", count, false))
+                {
+                    using (var tx = env.BeginReadOnlyTransaction())
+                    {
+                        foreach (var (key, value) in db.AsEnumerable(tx))
+                        {
+                            value.WriteInt64(0, i);
+                            // FlushFileBuffers((IntPtr)(*(long*)env._handle.DangerousGetHandle()));
+                            FlushViewOfFile(value.DataIntPtr - 16, (nint)4096);
+                            // VirtualUnlock(value.DataIntPtr - 16, (nint)4096);
+                        }
+                    }
+                }
+
+                using (Benchmark.Run("Append new", count, false))
+                {
+                    using (var tx = env.BeginTransaction())
+                    {
+                        var key0 = i;
+                        var keyPtr = Unsafe.AsPointer(ref key0);
+                        var key = new DirectBuffer(TypeHelper<int>.FixedSize, (nint)keyPtr);
+                        var value = DirectBuffer.LengthOnly(4080);
+                        db.Put(tx, ref key, ref value, TransactionPutOptions.AppendData | TransactionPutOptions.ReserveSpace);
+                        value.WriteInt64(0, i);
+                        tx.Commit();
+                    }
+                }
+                
+                // if(i % 100 == 0)
+                //     env.Sync(true);
+            }
+            
+            db.Dispose();
+            env.Close();
+            Benchmark.Dump();
+        }
+        
+        [DllImport("kernel32.dll", SetLastError=true, ExactSpelling=true)]
+        private static extern IntPtr VirtualUnlock(IntPtr lpAddress, IntPtr dwSize);
+        
+        [DllImport("kernel32.dll", SetLastError=true, ExactSpelling=true)]
+        private static extern IntPtr FlushViewOfFile(IntPtr lpAddress, IntPtr dwSize);
+        
+        [DllImport("kernel32.dll", SetLastError=true, ExactSpelling=true)]
+        private static extern IntPtr FlushFileBuffers(IntPtr hFile);
+        
+        
     }
 }

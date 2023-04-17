@@ -1,8 +1,3 @@
-|   Linux   |  Windows  |    Mac    | 
-|:---------:|:---------:|:---------:|
-| [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Linux)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Windows)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) | [![Build Status](https://dev.azure.com/DataSpreads/Spreads.LMDB/_apis/build/status/Spreads.Spreads.LMDB?branchName=master&jobName=Mac)](https://dev.azure.com/DataSpreads/Spreads.LMDB/_build/latest?definitionId=3&branchName=master) |
-
-
 # Spreads.LMDB
 
 Low-level zero-overhead and [the fastest](https://github.com/Spreads/Spreads.LMDB/commit/4085dde649ef9ebb64310f2627299762dd62d5ce) LMDB .NET wrapper with some additional native 

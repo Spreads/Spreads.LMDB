@@ -1,0 +1,74 @@
+name: Build & test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types:
+      - published
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  
+jobs:
+
+  test_nuget:
+    name: Test NuGet package on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+    - name: Test
+      run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
+
+  dotnet_build:
+    name: Dotnet build Windows
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET Core 6
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+
+    - name: Restore
+      run: dotnet restore src/Spreads.LMDB/Spreads.LMDB.csproj
+      
+    - name: Build
+      run: dotnet build src/Spreads.LMDB/Spreads.LMDB.csproj -c Release
+
+    - name: Restore Tests project
+      run: dotnet restore tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj
+
+    - name: Build Tests project
+      run:  dotnet build tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release
+
+    - name: Run Tests
+      run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
+
+    - name: Pack NuGet
+      run: dotnet pack src/Spreads.LMDB/Spreads.LMDB.csproj --no-restore --no-build -c Release -o artifacts  -p:BuildSuffix=False
+
+    - name: Upload NuGet artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: NuGet
+        path: dotnet/artifacts/*.nupkg
+
+    - name: Publish NuGet
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      if: github.event_name == 'release'
+      run: dotnet nuget push artifacts/**/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols --api-key "$env:NUGET_API_KEY"
+

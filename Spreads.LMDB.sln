@@ -16,15 +16,16 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 		lib\Readme.md = lib\Readme.md
 		build\Spreads.props = build\Spreads.props
+		.github\workflows\dotnetcore.yml = .github\workflows\dotnetcore.yml
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{ECB63F46-D037-4EEA-A4CD-BF18B5B9D2C4}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{ECB63F46-D037-4EEA-A4CD-BF18B5B9D2C4}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB", "src\Spreads.LMDB\Spreads.LMDB.csproj", "{C3564053-B66B-4A37-BDA3-A6E9994C792B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB.Tests", "test\Spreads.LMDB.Tests\Spreads.LMDB.Tests.csproj", "{B66E4EDB-9FC8-495B-BEE6-972DB56B32FA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB.Tests", "tests\Spreads.LMDB.Tests\Spreads.LMDB.Tests.csproj", "{B66E4EDB-9FC8-495B-BEE6-972DB56B32FA}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB.Tests.Run", "test\Spreads.LMDB.Tests.Run\Spreads.LMDB.Tests.Run.csproj", "{8719CA4D-716C-49AF-8E40-04706403EEAE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Spreads.LMDB.Tests.Run", "tests\Spreads.LMDB.Tests.Run\Spreads.LMDB.Tests.Run.csproj", "{8719CA4D-716C-49AF-8E40-04706403EEAE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

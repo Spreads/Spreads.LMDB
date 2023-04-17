@@ -18,15 +18,12 @@
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="Spreads.Core" Version="2021.0.720-build221101" />
+    <PackageReference Include="Spreads.Core" Version="2023.0.417" />
     <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
   </ItemGroup>
   
-  <PropertyGroup Condition="'$(TargetFramework)'=='net6.0' OR '$(TargetFramework)'=='net5.0' OR '$(TargetFramework)'=='netcoreapp3.1'">
-    <DefineConstants>$(DefineConstants);NETSTANDARD;HAS_ISREF;HAS_AGGR_OPT;HAS_INTRINSICS;BUILTIN_SPAN;BUILTIN_NULLABLE;HAS_TPWORKITEM;HAS_RANGE;HAS_BITOPERATIONS</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)'=='net6.0' OR '$(TargetFramework)'=='net5.0'">
-    <DefineConstants>$(DefineConstants);HAS_SUPPRESS_GC_TRANSITION</DefineConstants>
+  <PropertyGroup Condition="'$(TargetFramework)'=='net6.0' OR '$(TargetFramework)'=='net7.0' OR '$(TargetFramework)'=='netcoreapp8.0'">
+    <DefineConstants>$(DefineConstants);NETSTANDARD;HAS_ISREF;HAS_AGGR_OPT;HAS_INTRINSICS;BUILTIN_SPAN;BUILTIN_NULLABLE;HAS_TPWORKITEM;HAS_RANGE;HAS_BITOPERATIONS;HAS_SUPPRESS_GC_TRANSITION</DefineConstants>
   </PropertyGroup>
   
 </Project>

@@ -32,7 +32,7 @@ namespace Spreads.LMDB.Tests.Run
 
             var tests = new PerfTests();
 
-            tests.SimpleWriteReadBenchmark();
+            tests.LongWriteToOverflowPages();
 
             Console.WriteLine("Finished");
             Console.ReadLine();
