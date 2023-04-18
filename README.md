@@ -7,18 +7,18 @@ Available on NuGet as [Spreads.LMDB](https://www.nuget.org/packages/Spreads.LMDB
 
 ## C# `async/await` support
 
-LMDB's supported "normal" case is when a transaction is executed from a single thread. For .NET this means 
-that if all operations on a transactions are called from a single thread it doesn't matter which
-thread is executing a transaction and LMDB will just work.
+> In the original version, this library provided a dedicated writer thread for background writes (disabled by default). Now this functionality is removed. 
+It is hard to implement for a general case, but write serialization could be achieved in user code if needed. See #41 for more details.
 
-In some cases one my need background execution of write transactions or .NET async operations inside LMDB transactions. For this case Spreads.LMDB
-fully supports async/await. Write transactions are executed in a single thread via a blocking concurrent queue. Read transactions could be used from async code, which requires forcing [`MDB_NOTLS`](http://www.lmdb.tech/doc/group__mdb.html#ga32a193c6bf4d7d5c5d579e71f22e9340) 
+LMDB's supported "normal" case is when a transaction is executed from a single thread. For .NET this means 
+that if all operations on a transactions are called from a single thread then it does not matter which
+thread is executing a transaction and LMDB will just work. However, it's not possible to jump threads inside 
+write transactions, which means no awaits or wait handle waits.
+
+Read transactions could be used from async code, which requires forcing [`MDB_NOTLS`](http://www.lmdb.tech/doc/group__mdb.html#ga32a193c6bf4d7d5c5d579e71f22e9340) 
 attribute for environments:
 
 > A thread may use parallel read-only transactions. A read-only transaction may span threads if the user synchronizes its use. Applications that multiplex many user threads over individual OS threads need this option. Such an application must also serialize the write transactions in an OS thread, since LMDB's write locking is unaware of the user threads.
-
-Async support is **disabled** by default, but could be turned on 
-via `LMDBEnvironment.Create(..., disableAsync: false);` if needed.
 
 ## Read-only transaction and cursor renewal
 

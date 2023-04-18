@@ -34,8 +34,7 @@ namespace Spreads.LMDB.Tests
             var dirS = Path.Combine(path, "Spreads");
             Directory.CreateDirectory(dirS);
 
-            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.NoSync | LMDBEnvironmentFlags.NoLock,
-                disableAsync: true);
+            var envS = LMDBEnvironment.Create(dirS, LMDBEnvironmentFlags.NoSync | LMDBEnvironmentFlags.NoLock);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
@@ -144,7 +143,7 @@ namespace Spreads.LMDB.Tests
             var dir = Path.Combine(path, "Spreads");
             Directory.CreateDirectory(dir);
 
-            var envS = LMDBEnvironment.Create(dir, LMDBEnvironmentFlags.MapAsync, disableAsync: true);
+            var envS = LMDBEnvironment.Create(dir, LMDBEnvironmentFlags.MapAsync);
             envS.MaxDatabases = 10;
             envS.MapSize = 256 * 1024 * 1024;
             envS.Open();
@@ -239,8 +238,7 @@ namespace Spreads.LMDB.Tests
 
             Directory.CreateDirectory(Path.Combine(path, "Spreads"));
 
-            var envS = LMDBEnvironment.Create(Path.Combine(path, "Spreads"), LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.None,
-                disableAsync: true);
+            var envS = LMDBEnvironment.Create(Path.Combine(path, "Spreads"), LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.None);
             envS.MaxDatabases = 10;
             envS.MapSize = 16 * 1024 * 1024;
             envS.Open();
@@ -294,7 +292,7 @@ namespace Spreads.LMDB.Tests
             var dir = Path.Combine(path, "Spreads");
             Directory.CreateDirectory(dir);
 
-            var env = LMDBEnvironment.Create(dir, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync | LMDBEnvironmentFlags.NoMetaSync, disableAsync: true);
+            var env = LMDBEnvironment.Create(dir, LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync | LMDBEnvironmentFlags.NoMetaSync);
             env.MaxDatabases = 1;
             env.MapSize = 16L * 1024 * 1024 * 1024;
             env.Open();

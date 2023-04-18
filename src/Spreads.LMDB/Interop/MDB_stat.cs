@@ -41,5 +41,7 @@ namespace Spreads.LMDB.Interop
         /// Number of data items
         /// </summary>
         public readonly size_t ms_entries;
+
+        public override string ToString() => $"Stat: ms_psize={ms_psize}, ms_depth={ms_depth}, ms_branch_pages={ms_branch_pages}, ms_leaf_pages={ms_leaf_pages}, ms_overflow_pages={ms_overflow_pages}, ms_entries={ms_entries}";
     }
 }

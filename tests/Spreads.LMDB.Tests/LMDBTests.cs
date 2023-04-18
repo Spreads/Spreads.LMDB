@@ -22,7 +22,7 @@ namespace Spreads.LMDB.Tests
     public class LMDBTests
     {
         [Test]
-        public async Task CouldCreateEnvironment()
+        public void CouldCreateEnvironment()
         {
             //var x = Marshal.AllocHGlobal(128);
             //var y = Marshal.AllocHGlobal(128);
@@ -41,7 +41,7 @@ namespace Spreads.LMDB.Tests
         }
 
         [Test]
-        public async Task CouldCreateEnvironmentWithCyrillicPath()
+        public void CouldCreateEnvironmentWithCyrillicPath()
         {
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
             Console.WriteLine(LMDBVersionInfo.Version);
@@ -55,7 +55,7 @@ namespace Spreads.LMDB.Tests
         }
 
         [Test]
-        public async Task CouldCreateEnvironmentWithFullPath()
+        public void CouldCreateEnvironmentWithFullPath()
         {
             var path = Path.GetFullPath(Path.Combine(TestUtils.GetPath(), "subpath"));
             // Assert.AreEqual(LMDBVersionInfo.Version, "LMDB 0.9.22: (March 21, 2018)");
@@ -80,6 +80,7 @@ namespace Spreads.LMDB.Tests
             var used = env.TouchSpace(5);
             var stat = env.GetStat();
             Console.WriteLine("Used size: " + used);
+            Console.WriteLine(stat);
             env.Close();
 
             Console.WriteLine("Touch default: ");
@@ -91,6 +92,7 @@ namespace Spreads.LMDB.Tests
             used = env.TouchSpace();
             stat = env.GetStat();
             Console.WriteLine("Used size: " + used);
+            Console.WriteLine(stat);
             env.Close();
         }
 
@@ -105,47 +107,8 @@ namespace Spreads.LMDB.Tests
                 env.MapSize = 10L * 1024 * 1024 * 1024;
                 env.Open();
                 var stat = env.GetStat();
+                Console.WriteLine(stat);
             }
-        }
-
-        // TODO fix
-        [Test, Explicit("hangs")]
-        public async Task CouldWriteAsync()
-        {
-            var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, disableAsync:false);
-            env.Open();
-            var stat = env.GetStat();
-
-            using (var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create)))
-            {
-                db.Truncate();
-
-                var values = new byte[] { 1, 2, 3, 4 };
-
-                await env.WriteAsync(txn =>
-                {
-                    var key = new DirectBuffer(values);
-                    var value = new DirectBuffer(values);
-                    DirectBuffer value2 = default;
-
-                    using (var cursor = db.OpenCursor(txn))
-                    {
-                        Assert.IsTrue(cursor.TryPut(ref key, ref value, CursorPutOptions.NoOverwrite));
-                    }
-
-                    using (var cursor = db.OpenCursor(txn))
-                    {
-                        Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
-                    }
-
-                    Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
-                    txn.Commit();
-                    return Task.CompletedTask;
-                }, false).ConfigureAwait(false);
-            }
-
-            env.Close();
         }
 
         [Test]
@@ -200,7 +163,7 @@ namespace Spreads.LMDB.Tests
 
                     c.Dispose();
                     txn.Commit();
-                }, false);
+                });
             }
 
             Console.WriteLine("---------------------------");
@@ -227,7 +190,7 @@ namespace Spreads.LMDB.Tests
                         {
                             addresses2[i] = (long)value.Data - addr;
                             Console.WriteLine((long)value.Data + " - " + (long)value.Data % 4096 + " - " + addresses2[i] + " - " + addresses[i]);
-                            System.Runtime.CompilerServices.Unsafe.WriteUnaligned((void*)value.Data, i);
+                            Unsafe.WriteUnaligned((void*)value.Data, i);
                         }
                         addr = (long)value.Data;
                     }
@@ -323,7 +286,7 @@ namespace Spreads.LMDB.Tests
 
                     c.Dispose();
                     txn.Commit();
-                }, false);
+                });
             }
 
             Console.WriteLine("---------------------------");
@@ -350,7 +313,7 @@ namespace Spreads.LMDB.Tests
                         {
                             addresses2[i] = (long)value.Data - addr;
                             Console.WriteLine((long)value.Data + " - " + (long)value.Data % 4096 + " - " + addresses2[i] + " - " + addresses[i]);
-                            System.Runtime.CompilerServices.Unsafe.WriteUnaligned((void*)value.Data, i);
+                            Unsafe.WriteUnaligned((void*)value.Data, i);
                         }
                         addr = (long)value.Data;
                     }
@@ -476,7 +439,7 @@ namespace Spreads.LMDB.Tests
                     //}
                     //c.Dispose();
                     txn.Commit();
-                }, false);
+                });
             }
             db.Dispose();
             env.Close();
@@ -486,14 +449,14 @@ namespace Spreads.LMDB.Tests
         public async Task CouldWriteAndReadProfileReadPath()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path, disableAsync:false);
+            var env = LMDBEnvironment.Create(path);
             env.Open();
 
             var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
 
             var values = new byte[] { 1, 2, 3, 4 };
 
-            await env.WriteAsync(txn =>
+            env.Write(txn =>
             {
                 var key = new DirectBuffer(values);
                 var value = new DirectBuffer(values);
@@ -504,8 +467,8 @@ namespace Spreads.LMDB.Tests
                     Assert.IsTrue(cursor.TryPut(ref key, ref value, CursorPutOptions.None));
                 }
                 txn.Commit();
-                return null;
-            }, false).ConfigureAwait(false);
+                return 0;
+            });
 
             env.Read(txn =>
             {
@@ -548,62 +511,6 @@ namespace Spreads.LMDB.Tests
         }
 
         [Test, Explicit("long runnning")]
-        public async Task CouldWriteAndReadProfileWriteAsyncPath()
-        {
-            var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path,
-                // for any other config we have SQLite :)
-                LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync, disableAsync:false);
-            env.Open();
-
-            var db = env.OpenDatabase("first_db", new DatabaseConfig(DbFlags.Create));
-
-            var values = new byte[] { 1, 2, 3, 4 };
-
-            var count = 1_000;
-
-            using (Benchmark.Run("Write sync transactions", count))
-            {
-                for (var i = 0; i < count; i++)
-                {
-                    await env.WriteAsync(txn =>
-                    {
-                        var key = new DirectBuffer(values);
-                        var value = new DirectBuffer(values);
-                        DirectBuffer value2 = default;
-
-                        using (var cursor = db.OpenCursor(txn))
-                        {
-                            cursor.TryPut(ref key, ref value, CursorPutOptions.None);
-                        }
-
-                        txn.Commit();
-                        return null;
-                    }, false).ConfigureAwait(false);
-                }
-            }
-
-            Benchmark.Dump();
-
-            env.Read(txn =>
-            {
-                var key = new DirectBuffer(values);
-                var value = new DirectBuffer(values);
-                DirectBuffer value2 = default;
-
-                using (var cursor = db.OpenReadOnlyCursor(txn))
-                {
-                    Assert.IsTrue(cursor.TryGet(ref key, ref value2, CursorGetOption.SetKey));
-                }
-                Assert.IsTrue(value2.Span.SequenceEqual(value.Span));
-
-                return true;
-            });
-            db.Dispose();
-            env.Close();
-        }
-
-        [Test, Explicit("long runnning")]
         public void CouldWriteAndReadProfileWriteSYNCPath()
         {
             var path = TestUtils.GetPath();
@@ -615,10 +522,7 @@ namespace Spreads.LMDB.Tests
             var values = new byte[] { 1, 2, 3, 4 };
 
             var count = 1_000;
-
-            // NB: Draining queue after benchmark ends, so fire and forget case only shows overhead of sending
-            const bool fireAndForget = false;
-
+            
             using (Benchmark.Run("Write sync transactions", count))
             {
                 for (var i = 0; i < count; i++)
@@ -635,7 +539,7 @@ namespace Spreads.LMDB.Tests
                         }
 
                         txn.Commit();
-                    }, fireAndForget);
+                    });
                 }
             }
 
@@ -1337,7 +1241,7 @@ namespace Spreads.LMDB.Tests
                 {
                     var keydb = new DirectBuffer(keyLen, (nint)keyBytes);
                     DirectBuffer valuedb = default;
-                    Assert.IsTrue(c.TryFind(Spreads.Lookup.EQ, ref keydb, out valuedb));
+                    Assert.IsTrue(c.TryFind(Lookup.EQ, ref keydb, out valuedb));
                 }
             }
 

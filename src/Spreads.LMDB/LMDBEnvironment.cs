@@ -7,11 +7,9 @@ using Spreads.Collections.Concurrent;
 using Spreads.LMDB.Interop;
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace Spreads.LMDB
 {
@@ -29,14 +27,11 @@ namespace Spreads.LMDB
         private readonly UnixAccessMode _accessMode;
         private readonly bool _disableReadTxnAutoreset;
         private readonly LMDBEnvironmentFlags _openFlags;
-        internal EnvironmentHandle _handle;
+        internal readonly EnvironmentHandle _handle;
         private int _maxDbs;
         private int _pageSize;
         private int _overflowPageHeaderSize;
 
-        private readonly BlockingCollection<Delegates> _writeQueue;
-
-        private readonly TaskCompletionSource<object> _writeTaskCompletion = new TaskCompletionSource<object>();
         private readonly CancellationTokenSource _cts;
         private readonly string _directory;
         private volatile bool _isOpen;
@@ -50,22 +45,19 @@ namespace Spreads.LMDB
         // avoid the breakage from opening LMDB env twice
         // See Caveats: http://www.lmdb.tech/doc/index.html
         // Not thread-safe because it happens once per env at process start/end
-        private static ConcurrentDictionary<string, LMDBEnvironment> _openEnvs = new ConcurrentDictionary<string, LMDBEnvironment>();
+        private static readonly ConcurrentDictionary<string, LMDBEnvironment> OpenEnvs = new();
 
         /// <summary>
         /// Creates a new instance of Environment.
         /// </summary>
         /// <param name="directory">Relative directory for storing database files.</param>
         /// <param name="openFlags">Database open options.</param>
-        /// <param name="accessMode">Unix file access privelegies (optional). Only makes sense on unix operationg systems.</param>
-        /// <param name="disableAsync">Disable dedicated writer thread and NO_TLS option.
-        /// Fire-and-forget option for write transaction will throw.
-        /// .NET async cannot be used in transaction body. True by default. </param>
-        /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them. Should be true for multiple (a lot of) processes accessing the same env.</param>
+        /// <param name="accessMode">Unix file access privileges (optional). Only makes sense on unix operating systems.</param>
+        /// <param name="disableReadTxnAutoreset">Abort read-only transactions instead of resetting them. Should be true for multiple (a lot of) processes accessing the same env. You likely do not need this unless you understand it's implications.</param>
         public static LMDBEnvironment Create(string directory,
             LMDBEnvironmentFlags openFlags = LMDBEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
-            bool disableAsync = true, bool disableReadTxnAutoreset = false)
+            bool disableReadTxnAutoreset = false)
         {
 #pragma warning disable 618
             openFlags = openFlags | LMDBEnvironmentFlags.NoTls;
@@ -77,19 +69,20 @@ namespace Spreads.LMDB
             {
                 throw new ArgumentNullException(nameof(directory));
             }
-            var env = _openEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode, disableAsync, disableReadTxnAutoreset));
+
+            var env = OpenEnvs.GetOrAdd(directory, (dir) => new LMDBEnvironment(dir, openFlags, accessMode, disableReadTxnAutoreset));
             if (env._openFlags != openFlags || env._accessMode != accessMode)
             {
                 throw new InvalidOperationException("Environment is already open in this process with different flags and access mode.");
             }
-            env._instanceCount++;
+
+            Interlocked.Increment(ref env._instanceCount);
             return env;
         }
 
         private LMDBEnvironment(string directory,
             LMDBEnvironmentFlags openFlags = LMDBEnvironmentFlags.None,
             UnixAccessMode accessMode = UnixAccessMode.Default,
-            bool disableWriterThread = false,
             bool disableReadTxnAutoreset = false)
         {
             if (!System.IO.Directory.Exists(directory))
@@ -109,71 +102,8 @@ namespace Spreads.LMDB
 
             // Writer Task
             // In the current process writes are serialized via the blocking queue
-            // Accross processes, writes are synchronized via WriteTxnGate (TODO!)
+            // Across processes, writes are synchronized via WriteTxnGate (TODO!)
             _cts = new CancellationTokenSource();
-
-            if (!disableWriterThread)
-            {
-                _writeQueue = new BlockingCollection<Delegates>();
-                var threadStart = new ThreadStart(() =>
-                {
-                    while (!_writeQueue.IsCompleted)
-                    {
-                        try
-                        {
-                            // BLOCKING
-                            var delegates = _writeQueue.Take(_cts.Token);
-
-                            var transactionImpl = TransactionImpl.Create(this, TransactionBeginFlags.ReadWrite);
-
-                            try
-                            {
-                                // TODO for some methods such as mbd_put we should have a C method
-                                // that begins/end txn automatically
-                                // we still need to pass call to it here, but we could avoid txn creation
-                                // and two P/Invokes
-
-                                var txn = new Transaction(transactionImpl);
-
-                                if (delegates.WriteFunction != null)
-                                {
-                                    var res = delegates.WriteFunction(txn);
-                                    delegates.Tcs?.SetResult(res);
-                                }
-                                else if (delegates.WriteAction != null)
-                                {
-                                    delegates.WriteAction(txn);
-                                    delegates.Tcs?.SetResult(null);
-                                }
-                                else
-                                {
-                                    Environment.FailFast("Wrong writer thread setup");
-                                }
-                            }
-                            catch (Exception e)
-                            {
-                                delegates.Tcs?.SetException(e);
-                                transactionImpl?.Abort();
-                            }
-                            finally
-                            {
-                                transactionImpl?.Dispose();
-                            }
-                        }
-                        catch (InvalidOperationException)
-                        {
-                        }
-                    }
-
-                    _writeTaskCompletion.SetResult(null);
-                });
-                var writeThread = new Thread(threadStart)
-                {
-                    Name = "LMDB Writer thread",
-                    IsBackground = true
-                };
-                writeThread.Start();
-            }
         }
 
         /// <summary>
@@ -199,7 +129,7 @@ namespace Spreads.LMDB
             _isOpen = true;
             var maxPooledReaders = Math.Max(16, Math.Min(Environment.ProcessorCount * 2, MaxReaders - Environment.ProcessorCount * 2));
             var poolSize = _disableReadTxnAutoreset ? 1 : maxPooledReaders;
-            ReadTxnPool = new LockedObjectPool<TransactionImpl>(() => { return null; }, poolSize, false);
+            ReadTxnPool = new LockedObjectPool<TransactionImpl>(() => null, poolSize, false);
         }
 
         /// <summary>
@@ -216,94 +146,23 @@ namespace Spreads.LMDB
         /// </remarks>
         public bool AutoAbort { get; set; } = false;
 
-        public object Write(Func<Transaction, object> writeFunction, bool fireAndForget = false)
+        /// <summary>
+        /// Perform a write transaction.
+        /// </summary>
+        public T Write<T>(Func<Transaction, T> writeFunction)
         {
-            if (fireAndForget)
-            {
-                return WriteAsync(writeFunction, true).Result;
-            }
-            else
-            {
-#pragma warning disable 618
-                using (var txn = BeginTransaction())
-#pragma warning restore 618
-                {
-                    var result = writeFunction(txn);
-                    return result;
-                }
-            }
+            using var txn = BeginTransaction();
+            var result = writeFunction(txn);
+            return result;
         }
 
-        //internal object Write(Func<Transaction, object> writeFunction, bool fireAndForget, bool skipTxnCreate)
-        //{
-        //    return WriteAsync(writeFunction, fireAndForget, skipTxnCreate).Result;
-        //}
-
-        public void Write(Action<Transaction> writeAction, bool fireAndForget = false)
+        /// <summary>
+        /// Perform a write transaction.
+        /// </summary>
+        public void Write(Action<Transaction> writeAction)
         {
-            if (fireAndForget)
-            {
-                WriteAsync(writeAction, true).Wait();
-            }
-            else
-            {
-#pragma warning disable 618
-                using (var txn = BeginTransaction())
-#pragma warning restore 618
-                {
-                    writeAction(txn);
-                }
-            }
-        }
-        
-        [Obsolete]
-        internal Task<object> WriteAsync(Func<Transaction, object> writeFunction, bool fireAndForget = false)
-        {
-            EnsureAsyncWriteEnabled();
-            TaskCompletionSource<object> tcs;
-            if (!_writeQueue.IsAddingCompleted)
-            {
-                tcs = fireAndForget ? null : new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-                var act = new Delegates
-                {
-                    WriteFunction = writeFunction,
-                    Tcs = tcs
-                };
-
-                _writeQueue.Add(act);
-            }
-            else
-            {
-                throw new OperationCanceledException();
-            }
-
-            return fireAndForget ? Task.FromResult<object>(null) : tcs.Task;
-
-        }
-
-        [Obsolete]
-        public Task WriteAsync(Action<Transaction> writeAction, bool fireAndForget = false)
-        {
-            EnsureAsyncWriteEnabled();
-            TaskCompletionSource<object> tcs;
-            if (!_writeQueue.IsAddingCompleted)
-            {
-                tcs = fireAndForget ? null : new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-                var act = new Delegates
-                {
-                    WriteAction = writeAction,
-                    Tcs = tcs
-                };
-
-                _writeQueue.Add(act);
-            }
-            else
-            {
-                throw new OperationCanceledException();
-            }
-
-            return fireAndForget ? Task.CompletedTask : tcs.Task;
-
+            using var txn = BeginTransaction();
+            writeAction(txn);
         }
 
         /// <summary>
@@ -359,6 +218,7 @@ namespace Spreads.LMDB
             {
                 ThrowShouldUseReadOnlyTxn();
             }
+
             var impl = TransactionImpl.Create(this, flags);
             var txn = new Transaction(impl);
             return txn;
@@ -419,11 +279,12 @@ namespace Spreads.LMDB
 
         private void Close(bool force)
         {
-            _instanceCount--;
+            Interlocked.Decrement(ref _instanceCount);
             if (_instanceCount < 0)
             {
                 throw new InvalidOperationException("Multiple disposal of environment");
             }
+
             if (_instanceCount == 0 || force)
             {
                 if (!force)
@@ -441,21 +302,13 @@ namespace Spreads.LMDB
                     _isOpen = false;
                 }
 
-                if (_writeQueue != null)
-                {
-                    _writeQueue.CompleteAdding();
-                    // let finish already added write tasks
-                    _writeTaskCompletion.Task.Wait();
-                    Trace.Assert(_writeQueue.Count == 0, "Write queue must be empty on exit");
-                }
-
                 ReadTxnPool.Dispose();
 
                 _cts.Cancel();
                 // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
                 _handle.Dispose();
 
-                _openEnvs.TryRemove(_directory, out _);
+                OpenEnvs.TryRemove(_directory, out _);
             }
         }
 
@@ -524,9 +377,14 @@ namespace Spreads.LMDB
                 if (_isOpen)
                 {
                     // during tests we return same env instance, ignore setting the same size to it
-                    if (value == MapSize) { return; }
+                    if (value == MapSize)
+                    {
+                        return;
+                    }
+
                     throw new InvalidOperationException("Can't change MapSize of an opened environment");
                 }
+
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_set_mapsize(_handle, (IntPtr)value));
             }
         }
@@ -540,6 +398,7 @@ namespace Spreads.LMDB
                     var stat = GetStat();
                     _pageSize = (int)stat.ms_psize;
                 }
+
                 return _pageSize;
             }
         }
@@ -559,6 +418,7 @@ namespace Spreads.LMDB
                         _overflowPageHeaderSize = -1;
                     }
                 }
+
                 return _overflowPageHeaderSize;
             }
         }
@@ -569,9 +429,9 @@ namespace Spreads.LMDB
             {
                 throw new InvalidOperationException("OverflowPageHeaderSize requires DbEnvironmentFlags.WriteMap flag");
             }
+
             using (var txn = BeginTransaction())
             {
-                GCHandle handle;
                 try
                 {
                     var db = new Database("temp", txn._impl, new DatabaseConfig(DbFlags.Create));
@@ -614,6 +474,7 @@ namespace Spreads.LMDB
                 {
                     return (int)_maxReaders;
                 }
+
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_get_maxreaders(_handle, out var readers));
                 _maxReaders = readers;
                 return (int)readers;
@@ -622,9 +483,14 @@ namespace Spreads.LMDB
             {
                 if (_isOpen)
                 {
-                    if (value == MaxReaders) { return; }
+                    if (value == MaxReaders)
+                    {
+                        return;
+                    }
+
                     throw new InvalidOperationException("Can't change MaxReaders of opened environment");
                 }
+
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_set_maxreaders(_handle, (uint)value));
             }
         }
@@ -647,6 +513,7 @@ namespace Spreads.LMDB
                     if (value == _maxDbs) return;
                     throw new InvalidOperationException("Can't change MaxDatabases of opened environment");
                 }
+
                 NativeMethods.AssertExecute(NativeMethods.mdb_env_set_maxdbs(_handle, (uint)value));
                 _maxDbs = value;
             }
@@ -669,6 +536,7 @@ namespace Spreads.LMDB
             {
                 size = megabytes * 1024 * 1024;
             }
+
             if (size > MapSize - used)
             {
                 size = (int)(Math.Min(MapSize - used, int.MaxValue) * 8 / 10);
@@ -678,6 +546,7 @@ namespace Spreads.LMDB
             {
                 return used;
             }
+
             var db = OpenDatabase("__touch_space___", new DatabaseConfig(DbFlags.Create));
             using (var txn = BeginTransaction())
             {
@@ -689,17 +558,22 @@ namespace Spreads.LMDB
                 Unsafe.InitBlockUnaligned(value.Data, 0, (uint)value.Length);
                 txn.Commit();
             }
+
             Sync(true);
             using (var txn = BeginTransaction(TransactionBeginFlags.NoSync))
             {
                 // db.Truncate(txn);
                 db.Drop(txn);
             }
+
             db.Dispose();
             return UsedSize;
         }
 
-        public long EntriesCount { get { return GetStat().ms_entries.ToInt64(); } }
+        public long EntriesCount
+        {
+            get { return GetStat().ms_entries.ToInt64(); }
+        }
 
         /// <summary>
         /// Directory path to store database files.
@@ -741,30 +615,16 @@ namespace Spreads.LMDB
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureOpen()
         {
-            if (!_isOpen) { ThrowIfNotOpen(); }
-        }
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EnsureAsyncWriteEnabled()
-        {
-            if (_writeQueue == null) Throw();
-
-            void Throw()
+            if (!_isOpen)
             {
-                throw new InvalidOperationException("Async writes are disabled. See LMDBEnvironment ctor parameters.");
+                ThrowIfNotOpen();
             }
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowIfNotOpen()
-        {
-            throw new InvalidOperationException("Environment should be opened");
-        }
+        private static void ThrowIfNotOpen() => throw new InvalidOperationException("Environment should be opened");
 
-        private void Dispose(bool disposing)
-        {
-            Close(!disposing);
-        }
+        private void Dispose(bool disposing) => Close(!disposing);
 
         /// <summary>
         /// Dispose the environment and release the memory map.
@@ -778,16 +638,6 @@ namespace Spreads.LMDB
             Dispose(true);
         }
 
-        ~LMDBEnvironment()
-        {
-            Dispose(false);
-        }
-
-        private struct Delegates
-        {
-            public Func<Transaction, object> WriteFunction;
-            public Action<Transaction> WriteAction;
-            public TaskCompletionSource<object> Tcs;
-        }
+        ~LMDBEnvironment() => Dispose(false);
     }
 }

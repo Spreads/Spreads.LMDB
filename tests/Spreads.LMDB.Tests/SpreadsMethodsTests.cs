@@ -884,8 +884,7 @@ namespace Spreads.LMDB.Tests
         public void CouldFindDupWideKey()
         {
             var path = TestUtils.GetPath();
-            var env = LMDBEnvironment.Create(path,
-                 LMDBEnvironmentFlags.NoSync, disableAsync: true);
+            var env = LMDBEnvironment.Create(path, LMDBEnvironmentFlags.NoSync);
             env.MapSize = 100 * 1024 * 1024;
             env.Open();
 
