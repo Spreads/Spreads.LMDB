@@ -32,7 +32,6 @@ namespace Spreads.LMDB
         private int _pageSize;
         private int _overflowPageHeaderSize;
 
-        private readonly CancellationTokenSource _cts;
         private readonly string _directory;
         private volatile bool _isOpen;
 
@@ -90,7 +89,7 @@ namespace Spreads.LMDB
                 System.IO.Directory.CreateDirectory(directory);
             }
 
-            NativeMethods.AssertExecute(NativeMethods.mdb_env_create(out var envHandle));
+            NativeMethods.AssertExecute(NativeMethods.mdb_env_create(out var envHandle), nameof(NativeMethods.mdb_env_create));
             _handle = envHandle;
             _accessMode = accessMode;
             _disableReadTxnAutoreset = disableReadTxnAutoreset;
@@ -99,11 +98,6 @@ namespace Spreads.LMDB
             _openFlags = openFlags;
 
             MaxDatabases = Config.DbEnvironment.DefaultMaxDatabases;
-
-            // Writer Task
-            // In the current process writes are serialized via the blocking queue
-            // Across processes, writes are synchronized via WriteTxnGate (TODO!)
-            _cts = new CancellationTokenSource();
         }
 
         /// <summary>
@@ -112,14 +106,12 @@ namespace Spreads.LMDB
         public void Open()
         {
             if (!System.IO.Directory.Exists(_directory))
-            {
                 System.IO.Directory.CreateDirectory(_directory);
-            }
 
             if (!_isOpen)
             {
                 var ptr = NativeMethods.StringToHGlobalUTF8(_directory);
-                NativeMethods.AssertExecute(NativeMethods.mdb_env_open(_handle, ptr, _openFlags, _accessMode));
+                NativeMethods.AssertExecute(NativeMethods.mdb_env_open(_handle, ptr, _openFlags, _accessMode), nameof(NativeMethods.mdb_env_open));
                 if (ptr != IntPtr.Zero)
                 {
                     Marshal.FreeHGlobal(ptr);
@@ -280,31 +272,29 @@ namespace Spreads.LMDB
         private void Close(bool force)
         {
             Interlocked.Decrement(ref _instanceCount);
-            if (_instanceCount < 0)
-            {
-                throw new InvalidOperationException("Multiple disposal of environment");
-            }
-
-            if (_instanceCount == 0 || force)
+            
+            if (_instanceCount <= 0 || force)
             {
                 if (!force)
                 {
                     GC.SuppressFinalize(this);
                 }
 
-                lock (ReadTxnPool) // just some internal obj that always exists
+                lock (this)
                 {
                     if (!_isOpen)
                     {
                         return;
                     }
+                    
+                    if (_instanceCount < 0)
+                        throw new InvalidOperationException("Multiple disposal of environment");
 
                     _isOpen = false;
                 }
 
                 ReadTxnPool.Dispose();
 
-                _cts.Cancel();
                 // NB handle dispose does this: NativeMethods.mdb_env_close(_handle);
                 _handle.Dispose();
 

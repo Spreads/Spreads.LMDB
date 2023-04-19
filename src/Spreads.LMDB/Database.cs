@@ -299,14 +299,6 @@ namespace Spreads.LMDB
                 flags));
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Task PutAsync<TKey, TValue>(TKey key, TValue value,
-            TransactionPutOptions flags = TransactionPutOptions.None)
-            where TKey : struct where TValue : struct
-        {
-            return Task.Run(() => Put(key, value, flags));
-        }
-
         /// <summary>
         /// Delete key/value at key or all dupsort values if db supports dupsorted
         /// </summary>

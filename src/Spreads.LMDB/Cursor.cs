@@ -410,31 +410,36 @@ namespace Spreads.LMDB
             if (direction == Lookup.LE)
             {
                 res = NativeMethods.AssertRead(
-                    NativeMethods.sdb_cursor_get_le(_handle, ref key, out value)
+                    NativeMethods.sdb_cursor_get_le(_handle, ref key, out value),
+                    nameof(NativeMethods.sdb_cursor_get_le)
                 );
             }
             else if (direction == Lookup.GE)
             {
                 res = NativeMethods.AssertRead(
-                    NativeMethods.sdb_cursor_get_ge(_handle, ref key, out value)
+                    NativeMethods.sdb_cursor_get_ge(_handle, ref key, out value),
+                    nameof(NativeMethods.sdb_cursor_get_ge)
                 );
             }
             else if (direction == Lookup.EQ)
             {
                 res = NativeMethods.AssertRead(
-                    NativeMethods.sdb_cursor_get_eq(_handle, ref key, out value)
+                    NativeMethods.sdb_cursor_get_eq(_handle, ref key, out value),
+                    nameof(NativeMethods.sdb_cursor_get_eq)
                 );
             }
             else if (direction == Lookup.LT)
             {
                 res = NativeMethods.AssertRead(
-                    NativeMethods.sdb_cursor_get_lt(_handle, ref key, out value)
+                    NativeMethods.sdb_cursor_get_lt(_handle, ref key, out value),
+                    nameof(NativeMethods.sdb_cursor_get_lt)
                 );
             }
             else if (direction == Lookup.GT)
             {
                 res = NativeMethods.AssertRead(
-                    NativeMethods.sdb_cursor_get_gt(_handle, ref key, out value)
+                    NativeMethods.sdb_cursor_get_gt(_handle, ref key, out value),
+                    nameof(NativeMethods.sdb_cursor_get_gt)
                 );
             }
 

@@ -7,7 +7,7 @@ namespace Spreads.LMDB.Tests
 {
     public static class TestUtils
     {
-        public static string BaseDataPath = "./Datax/";
+        public static string BaseDataPath = "/tmp/SpreadsLMDBTests";
 
         public static bool InDocker = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
 

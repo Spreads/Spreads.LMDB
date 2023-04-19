@@ -31,7 +31,8 @@ namespace Spreads.LMDB
             return message;
         }
 
-        internal LMDBException(int code) : base(GetMessageByCode(code))
+        internal LMDBException(int code, string methodName = null) 
+            : base($"{(methodName == null ? "" : $"[{methodName}] ")}" + GetMessageByCode(code))
         {
             Code = code;
         }

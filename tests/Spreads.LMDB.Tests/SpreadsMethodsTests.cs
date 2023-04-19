@@ -16,7 +16,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldFindNoDup()
         {
-            var env = LMDBEnvironment.Create("./Data/CouldFindNoDup",
+            var env = LMDBEnvironment.Create(TestUtils.GetPath(),
                 LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
 
@@ -1165,7 +1165,7 @@ namespace Spreads.LMDB.Tests
         [Test]
         public void CouldFindDupDSIssue()
         {
-            var env = LMDBEnvironment.Create("./Data/CouldFindDup",
+            var env = LMDBEnvironment.Create(TestUtils.GetPath(),
                 LMDBEnvironmentFlags.WriteMap | LMDBEnvironmentFlags.NoSync);
             env.Open();
 

@@ -103,28 +103,28 @@ namespace Spreads.LMDB.Interop
         #region Helpers
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int AssertExecute(int res)
+        public static int AssertExecute(int res, string methodName = null)
         {
-            return AssertHelper(res, true);
+            return AssertHelper(res, true, methodName);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int AssertRead(int res)
+        public static int AssertRead(int res, string methodName = null)
         {
-            return AssertHelper(res, res != MDB_NOTFOUND);
+            return AssertHelper(res, res != MDB_NOTFOUND, methodName);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int AssertHelper(int res, bool shouldThrow)
+        private static int AssertHelper(int res, bool shouldThrow, string methodName = null)
         {
-            if (res != 0 && shouldThrow) { ThrowLMDBEx(res); }
+            if (res != 0 && shouldThrow) { ThrowLMDBEx(res, methodName); }
             return res;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static void ThrowLMDBEx(int res)
+        private static void ThrowLMDBEx(int res, string methodName = null)
         {
-            throw new LMDBException(res);
+            throw new LMDBException(res, methodName);
         }
 
         public static IntPtr StringToHGlobalUTF8(string s, out int length)
