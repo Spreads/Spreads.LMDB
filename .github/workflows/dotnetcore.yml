@@ -28,7 +28,9 @@ jobs:
           
       - name: Native build
         run: |
-          cd lib/libspreadsdb/src/libspreadsdb
+          cd lib/libspreadsdb/lmdb
+          git apply --verbose < ../version.patch
+          cd ../src/libspreadsdb
           make libspreads_lmdb.dll
           mkdir -p ../../../runtimes/win-x64/native
           cp libspreads_lmdb.dll ../../../runtimes/win-x64/native
@@ -57,7 +59,9 @@ jobs:
           
       - name: Native build
         run: |
-          cd lib/libspreadsdb/src/libspreadsdb
+          cd lib/libspreadsdb/lmdb
+          git apply --verbose < ../version.patch
+          cd ../src/libspreadsdb
           make libspreads_lmdb.so
           mkdir -p ../../../runtimes/linux-x64/native
           cp libspreads_lmdb.so ../../../runtimes/linux-x64/native
@@ -86,7 +90,9 @@ jobs:
           
       - name: Native build
         run: |
-          cd lib/libspreadsdb/src/libspreadsdb
+          cd lib/libspreadsdb/lmdb
+          git apply --verbose < ../version.patch
+          cd ../src/libspreadsdb
           make libspreads_lmdb.dylib
           mkdir -p ../../../runtimes/osx-x64/native
           cp libspreads_lmdb.dylib ../../../runtimes/osx-x64/native

@@ -172,4 +172,5 @@ project.lock.json
 /lib/libspreadsdb/src/libspreadsdb/libspreads_lmdb.lib
 .vscode
 
-!lib/runtimes/**/*.*
+!lib/runtimes/.keep
+/lib/runtimes/**/*.*

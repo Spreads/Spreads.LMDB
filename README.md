@@ -54,15 +54,20 @@ either `DirectBuffer`s or generic blittable structs.
 
 # Examples
 
-Tests show how to use the code.
+See tests. The API is very close to the C one but adapted for .NET. 
 
-# Status & limitations
+# Native libraries
 
-This library is being deployed and tested in production and is went through many performance 
-and correctness stress tests as a part of a larger workload.
+Required native binaries fo x64 on Linux, Windows and macOS are included in the NuGet package. 
+They are built via GitHub Actions using this [Makefile](https://github.com/Spreads/Spreads.LMDB/blob/main/lib/libspreadsdb/src/libspreadsdb/Makefile).
 
-The project has the required native binaries in its NuGet package. 
-The library works with the original native LMDB binaries as well if not using two `TryFind` helper methods.
+The LMDB version is `mdb.master` branch matching the latest edit to CHANGES in `mdb.RE/0.9` branch. 
+
+To build locally, you could adjust `SOEXT` for your platform and call `make` or just call make with a target `libspreads_lmdb[.so|.dll|.dylib]`.
+
+The library works with the original native LMDB binaries as well, but `TryFind` helper methods won't work.
+
+# Limitations
 
 The library does not support nested transactions yet - only because we do not use them currently. 
 They will be added as soon as we find a real-world compelling case for them. 

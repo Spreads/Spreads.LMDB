@@ -177,7 +177,8 @@ namespace Spreads.LMDB
                     // create new handle
                     NativeMethods.AssertExecute(NativeMethods.mdb_txn_begin(
                             lmdbEnvironment._handle.Handle,
-                            IntPtr.Zero, beginFlags, out var handle));
+                            IntPtr.Zero, beginFlags, out var handle),
+                        nameof(NativeMethods.mdb_txn_begin));
                     tx.SetNewHandle(handle);
                 }
                 else
@@ -279,6 +280,7 @@ namespace Spreads.LMDB
 #endif
                     }
                 }
+
                 _handle = IntPtr.Zero;
             }
 
@@ -392,7 +394,7 @@ namespace Spreads.LMDB
                 ThrowTxReadOnlyOnCommit();
             }
 
-            NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(_handle));
+            NativeMethods.AssertExecute(NativeMethods.mdb_txn_commit(_handle), nameof(NativeMethods.mdb_txn_commit));
             _state = TransactionState.Committed;
         }
 
@@ -403,6 +405,7 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotActiveOnAbort();
             }
+
             NativeMethods.mdb_txn_abort(_handle);
             _handle = IntPtr.Zero;
             _state = TransactionState.Aborted;
@@ -415,10 +418,12 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotActiveOnReset();
             }
+
             if (!_isReadOnly)
             {
                 ThrowTxNotReadonlyOnReset();
             }
+
             NativeMethods.mdb_txn_reset(_handle);
             _state = TransactionState.Reset;
         }
@@ -430,11 +435,13 @@ namespace Spreads.LMDB
             {
                 ThrowTxNotResetOnRenew();
             }
+
             if (!_isReadOnly)
             {
                 ThrowTxNotReadonlyOnRenew();
             }
-            NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(_handle));
+
+            NativeMethods.AssertExecute(NativeMethods.mdb_txn_renew(_handle), nameof(NativeMethods.mdb_txn_renew));
             _state = TransactionState.Active;
         }
 

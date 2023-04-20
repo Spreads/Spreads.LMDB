@@ -44,7 +44,7 @@ namespace Spreads.LMDB
             _environment = txn.LmdbEnvironment;
             _environmentGcHandle = GCHandle.Alloc(_environment, GCHandleType.Normal);
 
-            NativeMethods.AssertExecute(NativeMethods.mdb_dbi_open(txn.Handle, name, _config.OpenFlags, out var handle));
+            NativeMethods.AssertExecute(NativeMethods.mdb_dbi_open(txn.Handle, name, _config.OpenFlags, out var handle), nameof(NativeMethods.mdb_dbi_open));
             if (_config.CompareFunction != null)
             {
                 NativeMethods.AssertExecute(NativeMethods.mdb_set_compare(txn.Handle, handle, _config.CompareFunction));

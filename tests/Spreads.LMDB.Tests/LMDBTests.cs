@@ -329,6 +329,7 @@ namespace Spreads.LMDB.Tests
             var stat = env.GetStat();
             var dbstat = db.GetStat();
             Console.WriteLine("Oveflow pages: " + stat.ms_overflow_pages);
+            Console.WriteLine(dbstat);
             db.Dispose();
             env.Close();
         }
