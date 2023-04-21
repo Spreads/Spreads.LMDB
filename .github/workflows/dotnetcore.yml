@@ -25,30 +25,31 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          
+
       - name: Native build
         run: |
           cd lib/libspreadsdb/lmdb
           git apply --verbose < ../version.patch
-          cd ../src/libspreadsdb
+          cd ..
           make libspreads_lmdb.dll
-          mkdir -p ../../../runtimes/win-x64/native
-          cp libspreads_lmdb.dll ../../../runtimes/win-x64/native
-          
-      - name: Setup .NET Core
-        uses: actions/setup-dotnet@v2
-        with:
-          dotnet-version: 6.0.x
-          
-      - name: Test
-        run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
-        
+          mkdir -p ../runtimes/win-x64/native
+          cp libspreads_lmdb.dll ../runtimes/win-x64/native
+
       - name: Upload Native Lib
         uses: actions/upload-artifact@v3
         with:
           name: libspreads_lmdb.dll
-          path: lib/libspreadsdb/src/libspreadsdb/libspreads_lmdb.dll
-          
+          path: lib/libspreadsdb/libspreads_lmdb.dll
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Test
+        run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
+
+
   native_build_linux:
     name: Native build Linux
     runs-on: ubuntu-20.04
@@ -56,16 +57,22 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          
+
       - name: Native build
         run: |
           cd lib/libspreadsdb/lmdb
           git apply --verbose < ../version.patch
-          cd ../src/libspreadsdb
+          cd ..
           make libspreads_lmdb.so
-          mkdir -p ../../../runtimes/linux-x64/native
-          cp libspreads_lmdb.so ../../../runtimes/linux-x64/native
-          
+          mkdir -p ../runtimes/linux-x64/native
+          cp libspreads_lmdb.so ../runtimes/linux-x64/native
+
+      - name: Upload Native Lib
+        uses: actions/upload-artifact@v3
+        with:
+          name: libspreads_lmdb.so
+          path: lib/libspreadsdb/libspreads_lmdb.so
+
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v2
         with:
@@ -73,13 +80,8 @@ jobs:
 
       - name: Test
         run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
-        
-      - name: Upload Native Lib
-        uses: actions/upload-artifact@v3
-        with:
-          name: libspreads_lmdb.so
-          path: lib/libspreadsdb/src/libspreadsdb/libspreads_lmdb.so
-
+  
+  
   native_build_macos:
     name: Native build macOS
     runs-on: macos-latest
@@ -87,16 +89,22 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-          
+
       - name: Native build
         run: |
           cd lib/libspreadsdb/lmdb
           git apply --verbose < ../version.patch
-          cd ../src/libspreadsdb
+          cd ..
           make libspreads_lmdb.dylib
-          mkdir -p ../../../runtimes/osx-x64/native
-          cp libspreads_lmdb.dylib ../../../runtimes/osx-x64/native
-          
+          mkdir -p ../runtimes/osx-x64/native
+          cp libspreads_lmdb.dylib ../runtimes/osx-x64/native
+
+      - name: Upload Native Lib
+        uses: actions/upload-artifact@v3
+        with:
+          name: libspreads_lmdb.dylib
+          path: lib/libspreadsdb/libspreads_lmdb.dylib
+
       - name: Setup .NET Core
         uses: actions/setup-dotnet@v2
         with:
@@ -104,13 +112,8 @@ jobs:
 
       - name: Test
         run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
-        
-      - name: Upload Native Lib
-        uses: actions/upload-artifact@v3
-        with:
-          name: libspreads_lmdb.dylib
-          path: lib/libspreadsdb/src/libspreadsdb/libspreads_lmdb.dylib
-
+  
+  
   dotnet_pack:
     name: Dotnet pack NuGet
     runs-on: windows-latest
@@ -120,66 +123,66 @@ jobs:
       - native_build_windows
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Download macOS Lib
-      uses: actions/download-artifact@v2
-      with:
-        name: libspreads_lmdb.dylib
-        path: lib/runtimes/osx-x64/native
+      - name: Download macOS Lib
+        uses: actions/download-artifact@v2
+        with:
+          name: libspreads_lmdb.dylib
+          path: lib/runtimes/osx-x64/native
 
-    - name: Download Linux Lib
-      uses: actions/download-artifact@v2
-      with:
-        name: libspreads_lmdb.so
-        path: lib/runtimes/linux-x64/native
-  
-    - name: Download Windows Lib
-      uses: actions/download-artifact@v2
-      with:
-        name: libspreads_lmdb.dll
-        path: lib/runtimes/win-x64/native
-  
-    - name: Delete Native Lib Artifacts
-      uses: geekyeggo/delete-artifact@v1
-      with:
-        name: |
-          libspreads_lmdb.dylib
-          libspreads_lmdb.so
-          libspreads_lmdb.dll
-        failOnError: false
-        
-    - name: Setup .NET Core 6
-      uses: actions/setup-dotnet@v2
-      with:
-        dotnet-version: 6.0.x
+      - name: Download Linux Lib
+        uses: actions/download-artifact@v2
+        with:
+          name: libspreads_lmdb.so
+          path: lib/runtimes/linux-x64/native
 
-    - name: Restore
-      run: dotnet restore src/Spreads.LMDB/Spreads.LMDB.csproj
+      - name: Download Windows Lib
+        uses: actions/download-artifact@v2
+        with:
+          name: libspreads_lmdb.dll
+          path: lib/runtimes/win-x64/native
 
-    - name: Build
-      run: dotnet build src/Spreads.LMDB/Spreads.LMDB.csproj -c Release
+      - name: Delete Native Lib Artifacts
+        uses: geekyeggo/delete-artifact@v1
+        with:
+          name: |
+            libspreads_lmdb.dylib
+            libspreads_lmdb.so
+            libspreads_lmdb.dll
+          failOnError: false
 
-    - name: Restore Tests project
-      run: dotnet restore tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj
+      - name: Setup .NET Core 6
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: 6.0.x
 
-    - name: Build Tests project
-      run:  dotnet build tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release
+      - name: Restore
+        run: dotnet restore src/Spreads.LMDB/Spreads.LMDB.csproj
 
-    - name: Run Tests
-      run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
+      - name: Build
+        run: dotnet build src/Spreads.LMDB/Spreads.LMDB.csproj -c Release
 
-    - name: Pack NuGet
-      run: dotnet pack src/Spreads.LMDB/Spreads.LMDB.csproj --no-restore --no-build -c Release -o artifacts  -p:BuildSuffix=False
+      - name: Restore Tests project
+        run: dotnet restore tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj
 
-    - name: Upload NuGet artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: NuGet
-        path: artifacts/*.nupkg
+      - name: Build Tests project
+        run: dotnet build tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release
 
-    - name: Publish NuGet
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-      if: github.event_name == 'release'
-      run: dotnet nuget push artifacts/**/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols --api-key "$env:NUGET_API_KEY"
+      - name: Run Tests
+        run: dotnet test tests/Spreads.LMDB.Tests/Spreads.LMDB.Tests.csproj -c Release --verbosity normal
+
+      - name: Pack NuGet
+        run: dotnet pack src/Spreads.LMDB/Spreads.LMDB.csproj --no-restore --no-build -c Release -o artifacts  -p:BuildSuffix=False
+
+      - name: Upload NuGet artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: NuGet
+          path: artifacts/*.nupkg
+
+      - name: Publish NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        if: github.event_name == 'release'
+        run: dotnet nuget push artifacts/**/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate --no-symbols --api-key "$env:NUGET_API_KEY"

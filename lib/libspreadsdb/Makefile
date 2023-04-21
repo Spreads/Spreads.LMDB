@@ -7,7 +7,7 @@ W	= -W -Wall -Wno-unused-parameter -Wbad-function-cast -Wuninitialized
 THREADS = -pthread
 OPT ?= -O2 -g #-DNDEBUG
 #XCFLAGS = -DMDB_VL32 -D_FILE_OFFSET_BITS=64
-CFLAGS = -DMDB_MAXKEYSIZE=0 $(THREADS) $(OPT) $(W) $(XCFLAGS) 
+CFLAGS = -DMDB_DEBUG=0 -DMDB_MAXKEYSIZE=0 $(THREADS) $(OPT) $(W) $(XCFLAGS) 
 LDFLAGS = 
 LDLIBS	= 
 SOLIBS	= 
@@ -19,9 +19,9 @@ NAME = libspreads_lmdb
 SOEXT	= .so
 
 # Add LMDB files
-HEADERS += $(wildcard ../../lmdb/libraries/liblmdb/*.h)
-CFLAGS += -I../../lmdb/libraries/liblmdb
-SOURCES += ../../lmdb/libraries/liblmdb/mdb.c ../../lmdb/libraries/liblmdb/midl.c
+HEADERS += $(wildcard lmdb/libraries/liblmdb/*.h)
+CFLAGS += -Ilmdb/libraries/liblmdb
+SOURCES += lmdb/libraries/liblmdb/mdb.c lmdb/libraries/liblmdb/midl.c
 
 LIBOBJECTS = $(SOURCES:.c=.o)
 

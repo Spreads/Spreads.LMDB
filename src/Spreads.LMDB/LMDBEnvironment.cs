@@ -207,9 +207,7 @@ namespace Spreads.LMDB
         public Transaction BeginTransaction(TransactionBeginFlags flags = TransactionBeginFlags.ReadWrite)
         {
             if (((int)flags & (int)TransactionBeginFlags.ReadOnly) != 0)
-            {
                 ThrowShouldUseReadOnlyTxn();
-            }
 
             var impl = TransactionImpl.Create(this, flags);
             var txn = new Transaction(impl);
