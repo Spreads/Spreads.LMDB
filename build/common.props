@@ -13,7 +13,7 @@
     <LMDBVersion>930</LMDBVersion>
 
     <!-- Overrides -->
-    <MMDDVersion>420</MMDDVersion>
+    <MMDDVersion>421</MMDDVersion>
     <PackageHHMMSSSuffix></PackageHHMMSSSuffix>
 
   </PropertyGroup>
