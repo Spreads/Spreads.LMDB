@@ -30,6 +30,7 @@ jobs:
         run: |
           cd lib/libspreadsdb/lmdb
           git apply --verbose < ../version.patch
+          git apply --verbose < ../windows.patch
           cd ..
           make libspreads_lmdb.dll
           mkdir -p ../runtimes/win-x64/native
